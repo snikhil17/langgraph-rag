@@ -1,0 +1,11 @@
+"""Test retry on subclass of specified exception."""
+def test_should_retry_on_subclass_of_exception():
+
+
+    class CustomError(ValueError):
+        pass
+
+    policy = RetryPolicy(retry_on=ValueError)
+
+    # Should retry on subclass of specified exception
+    assert _should_retry_on(policy, CustomError("test error")) is True

@@ -1,0 +1,11 @@
+def route_messages(state: InterviewState, name: str = "Subject_Matter_Expert"):
+    messages = state["messages"]
+    num_responses = len(
+        [m for m in messages if isinstance(m, AIMessage) and m.name == name]
+    )
+    if num_responses >= max_num_turns:
+        return END
+    last_question = messages[-2]
+    if last_question.content.endswith("Thank you so much for your help!"):
+        return END
+    return "ask_question"

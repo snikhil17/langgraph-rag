@@ -1,0 +1,2 @@
+def get_class_methods(node: ast.ClassDef) -> List[str]:
+    return [n.name for n in node.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]

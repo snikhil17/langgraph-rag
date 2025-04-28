@@ -1,0 +1,64 @@
+def test_invoke_join_then_call_other_pregel(
+    mocker: MockerFixture, request: pytest.FixtureRequest, checkpointer_name: str
+) -> None:
+    checkpointer = request.getfixturevalue(f"checkpointer_{checkpointer_name}")
+
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    add_10_each = mocker.Mock(side_effect=lambda x: [y + 10 for y in x])
+
+    inner_app = Pregel(
+        nodes={
+            "one": Channel.subscribe_to("input") | add_one | Channel.write_to("output")
+        },
+        channels={
+            "output": LastValue(int),
+            "input": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+    )
+
+    one = (
+        Channel.subscribe_to("input")
+        | add_10_each
+        | Channel.write_to("inbox_one").map()
+    )
+    two = (
+        Channel.subscribe_to("inbox_one")
+        | inner_app.map()
+        | sorted
+        | Channel.write_to("outbox_one")
+    )
+    chain_three = Channel.subscribe_to("outbox_one") | sum | Channel.write_to("output")
+
+    app = Pregel(
+        nodes={
+            "one": one,
+            "two": two,
+            "chain_three": chain_three,
+        },
+        channels={
+            "inbox_one": Topic(int),
+            "outbox_one": LastValue(int),
+            "output": LastValue(int),
+            "input": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+    )
+
+    for _ in range(10):
+        assert app.invoke([2, 3]) == 27
+
+    with ThreadPoolExecutor() as executor:
+        assert [*executor.map(app.invoke, [[2, 3]] * 10)] == [27] * 10
+
+    # add checkpointer
+    app.checkpointer = checkpointer
+    # subgraph is called twice in the same node, but that works
+    assert app.invoke([2, 3], {"configurable": {"thread_id": "1"}}) == 27
+
+    # set inner graph checkpointer NeverCheckpoint
+    inner_app.checkpointer = False
+    # subgraph still called twice, but checkpointing for inner graph is disabled
+    assert app.invoke([2, 3], {"configurable": {"thread_id": "1"}}) == 27

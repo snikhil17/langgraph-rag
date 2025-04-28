@@ -1,0 +1,24 @@
+"""Defines the parameters for initiating a background run."""
+class RunCreate(TypedDict):
+
+
+    thread_id: Optional[str]
+    """The identifier of the thread to run. If not provided, the run is stateless."""
+    assistant_id: str
+    """The identifier of the assistant to use for this run."""
+    input: Optional[dict]
+    """Initial input data for the run."""
+    metadata: Optional[dict]
+    """Additional metadata to associate with the run."""
+    config: Optional[Config]
+    """Configuration options for the run."""
+    checkpoint_id: Optional[str]
+    """The identifier of a checkpoint to resume from."""
+    interrupt_before: Optional[list[str]]
+    """List of node names to interrupt execution before."""
+    interrupt_after: Optional[list[str]]
+    """List of node names to interrupt execution after."""
+    webhook: Optional[str]
+    """URL to send webhook notifications about the run's progress."""
+    multitask_strategy: Optional[MultitaskStrategy]
+    """Strategy for handling concurrent runs on the same thread."""

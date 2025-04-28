@@ -1,0 +1,14 @@
+"""Compute l2 distance between a vector X and a matrix Y.
+Lazy import numpy for efficiency."""
+def _neg_l2_distance(X: list[float], Y: list[list[float]]) -> list[float]:
+    """
+    Compute l2 distance between a vector X and a matrix Y.
+    Lazy import numpy for efficiency.
+    """
+
+    similarities = []
+    for y in Y:
+        similarity = sum((a - b) ** 2 for a, b in zip(X, y)) ** 0.5
+        similarities.append(-similarity)
+
+    return similarities

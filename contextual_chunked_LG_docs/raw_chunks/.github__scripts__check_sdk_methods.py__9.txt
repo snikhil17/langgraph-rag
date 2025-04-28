@@ -1,0 +1,30 @@
+def main():
+    with open(CLIENT_PATH, "r") as file:
+        tree = ast.parse(file.read())
+
+    classes = find_classes(tree)
+
+    def is_sync(class_spec: Tuple[str, List[str]]) -> bool:
+        return class_spec[0].startswith("Sync")
+
+    sync_class_name_to_methods = {class_name: class_methods for class_name, class_methods in filter(is_sync, classes)}
+    async_class_name_to_methods = {class_name: class_methods for class_name, class_methods in filterfalse(is_sync, classes)}
+
+    mismatches = []
+
+    for async_class_name, async_class_methods in async_class_name_to_methods.items():
+        sync_class_name = "Sync" + async_class_name
+        sync_class_methods = sync_class_name_to_methods.get(sync_class_name, [])
+        diff = compare_sync_async_methods(sync_class_methods, async_class_methods)
+        if diff:
+            mismatches.append((sync_class_name, async_class_name, diff))
+
+    if mismatches:
+        error_message = "Mismatches found between sync and async client methods:\n"
+        for sync_class_name, async_class_name, diff in mismatches:
+            error_message += f"{sync_class_name} vs {async_class_name}:\n"
+            for method in diff:
+                error_message += f"  - {method}\n"
+        raise ValueError(error_message)
+
+    print("All sync and async client methods match.")

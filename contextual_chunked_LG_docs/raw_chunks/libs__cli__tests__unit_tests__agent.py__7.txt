@@ -1,0 +1,6 @@
+class AgentState(TypedDict):
+    some_bytes: bytes
+    some_byte_array: bytearray
+    dict_with_bytes: dict[str, bytes]
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    sleep: int

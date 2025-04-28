@@ -1,0 +1,16 @@
+def temporary_config_folder(config_content: dict):
+    # Create a temporary directory
+    temp_dir = tempfile.mkdtemp()
+    try:
+        # Define the path for the config.json file
+        config_path = Path(temp_dir) / "config.json"
+
+        # Write the provided dictionary content to config.json
+        with open(config_path, "w", encoding="utf-8") as config_file:
+            json.dump(config_content, config_file)
+
+        # Yield the temporary directory path for use within the context
+        yield config_path.parent
+    finally:
+        # Cleanup the temporary directory and its contents
+        shutil.rmtree(temp_dir)

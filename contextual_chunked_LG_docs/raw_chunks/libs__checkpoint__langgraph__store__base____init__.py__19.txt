@@ -1,0 +1,103 @@
+"""Operation to store, update, or delete an item in the store.
+
+This class represents a single operation to modify the store's contents,
+whether adding new items, updating existing ones, or removing them."""
+class PutOp(NamedTuple):
+    """Operation to store, update, or delete an item in the store.
+
+    This class represents a single operation to modify the store's contents,
+    whether adding new items, updating existing ones, or removing them.
+    """
+
+    namespace: tuple[str, ...]
+    """Hierarchical path that identifies the location of the item.
+
+    The namespace acts as a folder-like structure to organize items.
+    Each element in the tuple represents one level in the hierarchy.
+
+    ???+ example "Examples"
+        Root level documents
+        ```python
+        ("documents",)
+        ```
+
+        User-specific documents
+        ```python
+        ("documents", "user123")
+        ```
+
+        Nested cache structure
+        ```python
+        ("cache", "embeddings", "v1")
+        ```
+    """
+
+    key: str
+    """Unique identifier for the item within its namespace.
+
+    The key must be unique within the specific namespace to avoid conflicts.
+    Together with the namespace, it forms a complete path to the item.
+
+    Example:
+        If namespace is ("documents", "user123") and key is "report1",
+        the full path would effectively be "documents/user123/report1"
+    """
+
+    value: Optional[dict[str, Any]]
+    """The data to store, or None to mark the item for deletion.
+
+    The value must be a dictionary with string keys and JSON-serializable values.
+    Setting this to None signals that the item should be deleted.
+
+    Example:
+        {
+            "field1": "string value",
+            "field2": 123,
+            "nested": {"can": "contain", "any": "serializable data"}
+        }
+    """
+
+    index: Optional[Union[Literal[False], list[str]]] = None  # type: ignore[assignment]
+    """Controls how the item's fields are indexed for search operations.
+
+    Indexing configuration determines how the item can be found through search:
+        - None (default): Uses the store's default indexing configuration (if provided)
+        - False: Disables indexing for this item
+        - list[str]: Specifies which json path fields to index for search
+
+    The item remains accessible through direct get() operations regardless of indexing.
+    When indexed, fields can be searched using natural language queries through
+    vector similarity search (if supported by the store implementation).
+
+    Path Syntax:
+        - Simple field access: "field"
+        - Nested fields: "parent.child.grandchild"
+        - Array indexing:
+          - Specific index: "array[0]"
+          - Last element: "array[-1]"
+          - All elements (each individually): "array[*]"
+
+    ???+ example "Examples"
+        - None - Use store defaults (whole item)
+        - list[str] - List of fields to index
+
+        ```python
+        [
+            "metadata.title",                    # Nested field access
+            "context[*].content",                # Index content from all context as separate vectors
+            "authors[0].name",                   # First author's name
+            "revisions[-1].changes",             # Most recent revision's changes
+            "sections[*].paragraphs[*].text",    # All text from all paragraphs in all sections
+            "metadata.tags[*]",                  # All tags in metadata
+        ]
+        ```
+    """
+    ttl: Optional[float] = None
+    """Controls the TTL (time-to-live) for the item in minutes.
+
+    If provided, and if the store you are using supports this feature, the item
+    will expire this many minutes after it was last accessed. The expiration timer
+    refreshes on both read operations (get/search) and write operations (put/update).
+    When the TTL expires, the item will be scheduled for deletion on a best-effort basis.
+    Defaults to None (no expiration).
+    """

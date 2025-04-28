@@ -1,0 +1,46 @@
+def test_search(saver_name: str, test_data) -> None:
+    with _saver(saver_name) as saver:
+        configs = test_data["configs"]
+        checkpoints = test_data["checkpoints"]
+        metadata = test_data["metadata"]
+
+        saver.put(configs[0], checkpoints[0], metadata[0], {})
+        saver.put(configs[1], checkpoints[1], metadata[1], {})
+        saver.put(configs[2], checkpoints[2], metadata[2], {})
+
+        # call method / assertions
+        query_1 = {"source": "input"}  # search by 1 key
+        query_2 = {
+            "step": 1,
+            "writes": {"foo": "bar"},
+        }  # search by multiple keys
+        query_3: dict[str, Any] = {}  # search by no keys, return all checkpoints
+        query_4 = {"source": "update", "step": 1}  # no match
+
+        search_results_1 = list(saver.list(None, filter=query_1))
+        assert len(search_results_1) == 1
+        assert search_results_1[0].metadata == {
+            **_exclude_keys(configs[0]["configurable"]),
+            **metadata[0],
+        }
+
+        search_results_2 = list(saver.list(None, filter=query_2))
+        assert len(search_results_2) == 1
+        assert search_results_2[0].metadata == {
+            **_exclude_keys(configs[1]["configurable"]),
+            **metadata[1],
+        }
+
+        search_results_3 = list(saver.list(None, filter=query_3))
+        assert len(search_results_3) == 3
+
+        search_results_4 = list(saver.list(None, filter=query_4))
+        assert len(search_results_4) == 0
+
+        # search by config (defaults to checkpoints across all namespaces)
+        search_results_5 = list(saver.list({"configurable": {"thread_id": "thread-2"}}))
+        assert len(search_results_5) == 2
+        assert {
+            search_results_5[0].config["configurable"]["checkpoint_ns"],
+            search_results_5[1].config["configurable"]["checkpoint_ns"],
+        } == {"", "inner"}

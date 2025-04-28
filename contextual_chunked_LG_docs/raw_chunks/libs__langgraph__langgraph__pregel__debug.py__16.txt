@@ -1,0 +1,5 @@
+class TaskPayload(TypedDict):
+    id: str
+    name: str
+    input: Any
+    triggers: list[str]

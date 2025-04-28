@@ -1,0 +1,23 @@
+def main(file_path: str) -> None:
+    # Read the markdown file.
+    with open(file_path, "r") as f:
+        markdown_content = f.read()
+
+    # 1. Extract all Python snippets.
+    python_snippets = extract_python_snippets(markdown_content)[:1]
+
+    # 2. Translate each Python snippet to TypeScript.
+    typescript_snippets = []
+    # Replace with .batch() for faster translation
+    for python_snippet in _tqdm(python_snippets):
+        ts_snippet = translate_snippet(python_snippet)
+        typescript_snippets.append(ts_snippet)
+
+    # 3. Insert the TypeScript translations after their respective Python snippets.
+    updated_markdown = insert_translations_into_markdown(
+        markdown_content, typescript_snippets
+    )
+
+    # Overwrite the original markdown file with the updated content.
+    with open(file_path, "w") as f:
+        f.write(updated_markdown)

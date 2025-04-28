@@ -1,0 +1,18 @@
+"""Test pagination with vector search."""
+def test_vector_search_pagination(vector_store: PostgresStore) -> None:
+
+    # Insert multiple similar documents
+    for i in range(5):
+        vector_store.put(("test",), f"doc{i}", {"text": f"test document number {i}"})
+
+    # Test with different page sizes
+    results_page1 = vector_store.search(("test",), query="test", limit=2)
+    results_page2 = vector_store.search(("test",), query="test", limit=2, offset=2)
+
+    assert len(results_page1) == 2
+    assert len(results_page2) == 2
+    assert results_page1[0].key != results_page2[0].key
+
+    # Get all results
+    all_results = vector_store.search(("test",), query="test", limit=10)
+    assert len(all_results) == 5

@@ -1,0 +1,2 @@
+"""Provided namespace is invalid."""
+class InvalidNamespaceError(ValueError):

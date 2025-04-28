@@ -1,0 +1,335 @@
+class CompiledStateGraph(CompiledGraph):
+    builder: StateGraph
+    schema_to_mapper: dict[type[Any], Optional[Callable[[Any], Any]]]
+
+    def __init__(
+        self,
+        *,
+        schema_to_mapper: dict[type[Any], Optional[Callable[[Any], Any]]],
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.schema_to_mapper = schema_to_mapper
+
+    def get_input_schema(
+        self, config: Optional[RunnableConfig] = None
+    ) -> type[BaseModel]:
+        return _get_schema(
+            typ=self.builder.input,
+            schemas=self.builder.schemas,
+            channels=self.builder.channels,
+            name=self.get_name("Input"),
+        )
+
+    def get_output_schema(
+        self, config: Optional[RunnableConfig] = None
+    ) -> type[BaseModel]:
+        return _get_schema(
+            typ=self.builder.output,
+            schemas=self.builder.schemas,
+            channels=self.builder.channels,
+            name=self.get_name("Output"),
+        )
+
+    def attach_node(self, key: str, node: Optional[StateNodeSpec]) -> None:
+        if key == START:
+            output_keys = [
+                k
+                for k, v in self.builder.schemas[self.builder.input].items()
+                if not is_managed_value(v)
+            ]
+        else:
+            output_keys = list(self.builder.channels) + [
+                k
+                for k, v in self.builder.managed.items()
+                if is_writable_managed_value(v)
+            ]
+
+        def _get_updates(
+            input: Union[None, dict, Any],
+        ) -> Optional[Sequence[tuple[str, Any]]]:
+            if input is None:
+                return None
+            elif isinstance(input, dict):
+                return [(k, v) for k, v in input.items() if k in output_keys]
+            elif isinstance(input, Command):
+                if input.graph == Command.PARENT:
+                    return None
+                return [
+                    (k, v) for k, v in input._update_as_tuples() if k in output_keys
+                ]
+            elif (
+                isinstance(input, (list, tuple))
+                and input
+                and any(isinstance(i, Command) for i in input)
+            ):
+                updates: list[tuple[str, Any]] = []
+                for i in input:
+                    if isinstance(i, Command):
+                        if i.graph == Command.PARENT:
+                            continue
+                        updates.extend(
+                            (k, v) for k, v in i._update_as_tuples() if k in output_keys
+                        )
+                    else:
+                        updates.extend(_get_updates(i) or ())
+                return updates
+            elif (t := type(input)) and get_type_hints(t):
+                return get_update_as_tuples(input, output_keys)
+            else:
+                msg = create_error_message(
+                    message=f"Expected dict, got {input}",
+                    error_code=ErrorCode.INVALID_GRAPH_NODE_RETURN_VALUE,
+                )
+                raise InvalidUpdateError(msg)
+
+        # state updaters
+        write_entries: tuple[Union[ChannelWriteEntry, ChannelWriteTupleEntry], ...] = (
+            ChannelWriteTupleEntry(
+                mapper=_get_root if output_keys == ["__root__"] else _get_updates
+            ),
+            ChannelWriteTupleEntry(
+                mapper=_control_branch,
+                static=_control_static(node.ends)
+                if node is not None and node.ends is not None
+                else None,
+            ),
+        )
+
+        # add node and output channel
+        if key == START:
+            self.nodes[key] = PregelNode(
+                tags=[TAG_HIDDEN],
+                triggers=[START],
+                channels=[START],
+                writers=[ChannelWrite(write_entries)],
+            )
+        elif node is not None:
+            input_schema = node.input if node else self.builder.schema
+            input_values = {k: k for k in self.builder.schemas[input_schema]}
+            is_single_input = len(input_values) == 1 and "__root__" in input_values
+            if input_schema in self.schema_to_mapper:
+                mapper = self.schema_to_mapper[input_schema]
+            else:
+                mapper = _pick_mapper(
+                    list(input_values),
+                    input_schema,
+                    self.builder.type_hints[input_schema],
+                )
+                self.schema_to_mapper[input_schema] = mapper
+
+            branch_channel = CHANNEL_BRANCH_TO.format(key)
+            self.channels[branch_channel] = EphemeralValue(Any, guard=False)
+            self.nodes[key] = PregelNode(
+                triggers=[branch_channel],
+                # read state keys and managed values
+                channels=(list(input_values) if is_single_input else input_values),
+                # coerce state dict to schema class (eg. pydantic model)
+                mapper=mapper,
+                # publish to state keys
+                writers=[ChannelWrite(write_entries)],
+                metadata=node.metadata,
+                retry_policy=node.retry_policy,
+                bound=node.runnable,
+            )
+        else:
+            raise RuntimeError
+
+    def attach_edge(self, starts: Union[str, Sequence[str]], end: str) -> None:
+        if isinstance(starts, str):
+            # subscribe to start channel
+            if end != END:
+                self.nodes[starts].writers.append(
+                    ChannelWrite(
+                        (ChannelWriteEntry(CHANNEL_BRANCH_TO.format(end), None),)
+                    )
+                )
+        elif end != END:
+            channel_name = f"join:{'+'.join(starts)}:{end}"
+            # register channel
+            self.channels[channel_name] = NamedBarrierValue(str, set(starts))
+            # subscribe to channel
+            self.nodes[end].triggers.append(channel_name)
+            # publish to channel
+            for start in starts:
+                self.nodes[start].writers.append(
+                    ChannelWrite((ChannelWriteEntry(channel_name, start),))
+                )
+
+    def attach_branch(
+        self, start: str, name: str, branch: Branch, *, with_reader: bool = True
+    ) -> None:
+        def get_writes(
+            packets: Sequence[Union[str, Send]], static: bool = False
+        ) -> Sequence[Union[ChannelWriteEntry, Send]]:
+            writes = [
+                (
+                    ChannelWriteEntry(CHANNEL_BRANCH_TO.format(p), None)
+                    if not isinstance(p, Send)
+                    else p
+                )
+                for p in packets
+                if (True if static else p != END)
+            ]
+            if not writes:
+                return []
+            if branch.then and branch.then != END:
+                writes.append(
+                    ChannelWriteEntry(
+                        f"branch:{start}:{name}::then",
+                        WaitForNames(
+                            frozenset(
+                                p.node if isinstance(p, Send) else p for p in packets
+                            )
+                        ),
+                    )
+                )
+            return writes
+
+        if with_reader:
+            # get schema
+            schema = branch.input_schema or (
+                self.builder.nodes[start].input
+                if start in self.builder.nodes
+                else self.builder.schema
+            )
+            channels = list(self.builder.schemas[schema])
+            # get mapper
+            if schema in self.schema_to_mapper:
+                mapper = self.schema_to_mapper[schema]
+            else:
+                mapper = _pick_mapper(channels, schema, self.builder.type_hints[schema])
+                self.schema_to_mapper[schema] = mapper
+            # create reader
+            reader: Optional[Callable[[RunnableConfig], Any]] = partial(
+                ChannelRead.do_read,
+                select=channels[0] if channels == ["__root__"] else channels,
+                fresh=True,
+                # coerce state dict to schema class (eg. pydantic model)
+                mapper=mapper,
+            )
+        else:
+            reader = None
+
+        # attach branch publisher
+        self.nodes[start].writers.append(branch.run(get_writes, reader))
+
+        # attach then subscriber
+        if branch.then and branch.then != END:
+            ends = (
+                branch.ends.values()
+                if branch.ends
+                else [node for node in self.builder.nodes if node != branch.then]
+            )
+            channel_name = f"branch:{start}:{name}::then"
+            self.channels[channel_name] = DynamicBarrierValue(str)
+            self.nodes[branch.then].triggers.append(channel_name)
+            for end in ends:
+                if end != END:
+                    self.nodes[end].writers.append(
+                        ChannelWrite((ChannelWriteEntry(channel_name, end),))
+                    )
+
+    def _migrate_checkpoint(self, checkpoint: Checkpoint) -> None:
+        """Migrate a checkpoint to new channel layout."""
+
+        values = checkpoint["channel_values"]
+        versions = checkpoint["channel_versions"]
+        seen = checkpoint["versions_seen"]
+
+        # empty checkpoints do not need migration
+        if not versions:
+            return
+
+        # current version
+        if checkpoint["v"] >= 3:
+            return
+
+        # Migrate from start:node to branch:to:node
+        for k in list(versions):
+            if k.startswith("start:"):
+                # confirm node is present
+                node = k.split(":")[1]
+                if node not in self.nodes:
+                    continue
+                # get next version
+                new_k = f"branch:to:{node}"
+                new_v = (
+                    max(versions[new_k], versions.pop(k))
+                    if new_k in versions
+                    else versions.pop(k)
+                )
+                # update seen
+                for ss in (seen.get(node, {}), seen.get(INTERRUPT, {})):
+                    if k in ss:
+                        s = ss.pop(k)
+                        if new_k in ss:
+                            ss[new_k] = max(s, ss[new_k])
+                        else:
+                            ss[new_k] = s
+                # update value
+                if new_k not in values and k in values:
+                    values[new_k] = values.pop(k)
+                # update version
+                versions[new_k] = new_v
+
+        # Migrate from branch:source:condition:node to branch:to:node
+        for k in list(versions):
+            if k.startswith("branch:") and k.count(":") == 3:
+                # confirm node is present
+                node = k.split(":")[-1]
+                if node not in self.nodes:
+                    continue
+                # get next version
+                new_k = f"branch:to:{node}"
+                new_v = (
+                    max(versions[new_k], versions.pop(k))
+                    if new_k in versions
+                    else versions.pop(k)
+                )
+                # update seen
+                for ss in (seen.get(node, {}), seen.get(INTERRUPT, {})):
+                    if k in ss:
+                        s = ss.pop(k)
+                        if new_k in ss:
+                            ss[new_k] = max(s, ss[new_k])
+                        else:
+                            ss[new_k] = s
+                # update value
+                if new_k not in values and k in values:
+                    values[new_k] = values.pop(k)
+                # update version
+                versions[new_k] = new_v
+
+        if not set(self.nodes).isdisjoint(versions):
+            # Migrate from "node" to "branch:to:node"
+            source_to_target = defaultdict(list)
+            for start, end in self.builder.edges:
+                if start != START and end != END:
+                    source_to_target[start].append(end)
+            for k in list(versions):
+                if k == START:
+                    continue
+                if k in self.nodes:
+                    v = versions.pop(k)
+                    c = values.pop(k, MISSING)
+                    for end in source_to_target[k]:
+                        # get next version
+                        new_k = f"branch:to:{end}"
+                        new_v = max(versions[new_k], v) if new_k in versions else v
+                        # update seen
+                        for ss in (seen.get(end, {}), seen.get(INTERRUPT, {})):
+                            if k in ss:
+                                s = ss.pop(k)
+                                if new_k in ss:
+                                    ss[new_k] = max(s, ss[new_k])
+                                else:
+                                    ss[new_k] = s
+                        # update value
+                        if new_k not in values and c is not MISSING:
+                            values[new_k] = c
+                        # update version
+                        versions[new_k] = new_v
+                    # pop interrupt seen
+                    if INTERRUPT in seen:
+                        seen[INTERRUPT].pop(k, MISSING)

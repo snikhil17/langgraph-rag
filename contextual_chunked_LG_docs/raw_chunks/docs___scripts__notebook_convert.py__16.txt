@@ -1,0 +1,10 @@
+def convert_notebook(
+    notebook_path: Path,
+    mode: Literal["markdown", "exec"] = "markdown",
+) -> str:
+    with open(notebook_path) as f:
+        nb = nbformat.read(f, as_version=4)
+
+    nb.metadata.mode = mode
+    body, _ = exporter.from_notebook_node(nb)
+    return body

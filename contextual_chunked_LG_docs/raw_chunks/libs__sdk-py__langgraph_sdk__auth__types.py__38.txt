@@ -1,0 +1,18 @@
+"""Parameters for reading thread state or run information.
+
+This type is used in three contexts:
+1. Reading thread, thread version, or thread state information: Only thread_id is provided
+2. Reading run information: Both thread_id and run_id are provided"""
+class ThreadsRead(typing.TypedDict, total=False):
+    """Parameters for reading thread state or run information.
+
+    This type is used in three contexts:
+    1. Reading thread, thread version, or thread state information: Only thread_id is provided
+    2. Reading run information: Both thread_id and run_id are provided
+    """
+
+    thread_id: UUID
+    """Unique identifier for the thread."""
+
+    run_id: typing.Optional[UUID]
+    """Run ID to filter by. Only used when reading run information within a thread."""

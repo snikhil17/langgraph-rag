@@ -1,0 +1,11 @@
+def _swap_roles(state: SimulationState):
+    new_messages = []
+    for m in state["messages"]:
+        if isinstance(m, AIMessage):
+            new_messages.append(HumanMessage(content=m.content))
+        else:
+            new_messages.append(AIMessage(content=m.content))
+    return {
+        "inputs": state.get("inputs", {}),
+        "messages": new_messages,
+    }

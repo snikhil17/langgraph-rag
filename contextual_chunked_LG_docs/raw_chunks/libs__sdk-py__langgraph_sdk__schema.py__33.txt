@@ -1,0 +1,18 @@
+"""Represents a conversation thread."""
+class Thread(TypedDict):
+
+
+    thread_id: str
+    """The ID of the thread."""
+    created_at: datetime
+    """The time the thread was created."""
+    updated_at: datetime
+    """The last time the thread was updated."""
+    metadata: Json
+    """The thread metadata."""
+    status: ThreadStatus
+    """The status of the thread, one of 'idle', 'busy', 'interrupted'."""
+    values: Json
+    """The current state of the thread."""
+    interrupts: Dict[str, list[Interrupt]]
+    """Interrupts which were thrown in this thread"""

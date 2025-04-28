@@ -1,0 +1,23 @@
+"""Main function to create the third party page.
+
+Args:
+    input_file: Path to the input YAML file containing resolved package information.
+    output_file: Path to the output file for the third party page.
+    language: The language for which to generate the third party page."""
+def main(input_file: str, output_file: str, language: str) -> None:
+    """Main function to create the third party page.
+
+    Args:
+        input_file: Path to the input YAML file containing resolved package information.
+        output_file: Path to the output file for the third party page.
+        language: The language for which to generate the third party page.
+    """
+    # Parse the input YAML file
+    with open(input_file, "r") as f:
+        resolved_packages: List[ResolvedPackage] = yaml.safe_load(f)
+
+    markdown_content = generate_markdown(resolved_packages, language)
+
+    # Write the markdown content to the output file
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(markdown_content)

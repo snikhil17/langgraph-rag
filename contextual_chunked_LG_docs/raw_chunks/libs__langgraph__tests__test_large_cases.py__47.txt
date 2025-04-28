@@ -1,0 +1,302 @@
+def test_start_branch_then(
+    snapshot: SnapshotAssertion, request: pytest.FixtureRequest, checkpointer_name: str
+) -> None:
+    checkpointer = request.getfixturevalue(f"checkpointer_{checkpointer_name}")
+
+    class State(TypedDict):
+        my_key: Annotated[str, operator.add]
+        market: str
+        shared: Annotated[dict[str, dict[str, Any]], SharedValue.on("assistant_id")]
+
+    def assert_shared_value(data: State, config: RunnableConfig) -> State:
+        assert "shared" in data
+        if thread_id := config["configurable"].get("thread_id"):
+            if thread_id == "1":
+                # this is the first thread, so should not see a value
+                assert data["shared"] == {}
+                return {"shared": {"1": {"hello": "world"}}}
+            elif thread_id == "2":
+                # this should get value saved by thread 1
+                assert data["shared"] == {"1": {"hello": "world"}}
+            elif thread_id == "3":
+                # this is a different assistant, so should not see previous value
+                assert data["shared"] == {}
+        return {}
+
+    def tool_two_slow(data: State, config: RunnableConfig) -> State:
+        return {"my_key": " slow", **assert_shared_value(data, config)}
+
+    def tool_two_fast(data: State, config: RunnableConfig) -> State:
+        return {"my_key": " fast", **assert_shared_value(data, config)}
+
+    tool_two_graph = StateGraph(State)
+    tool_two_graph.add_node("tool_two_slow", tool_two_slow)
+    tool_two_graph.add_node("tool_two_fast", tool_two_fast)
+    tool_two_graph.set_conditional_entry_point(
+        lambda s: "tool_two_slow" if s["market"] == "DE" else "tool_two_fast",
+        then=END,
+        path_map=["tool_two_slow", "tool_two_fast"],
+    )
+    tool_two = tool_two_graph.compile()
+    if checkpointer_name == "memory":
+        assert tool_two.get_graph().draw_mermaid() == snapshot
+
+    assert tool_two.invoke({"my_key": "value", "market": "DE"}) == {
+        "my_key": "value slow",
+        "market": "DE",
+    }
+    assert tool_two.invoke({"my_key": "value", "market": "US"}) == {
+        "my_key": "value fast",
+        "market": "US",
+    }
+
+    tool_two = tool_two_graph.compile(
+        store=InMemoryStore(),
+        checkpointer=checkpointer,
+        interrupt_before=["tool_two_fast", "tool_two_slow"],
+    )
+
+    # missing thread_id
+    with pytest.raises(ValueError, match="thread_id"):
+        tool_two.invoke({"my_key": "value", "market": "DE"})
+
+    thread1 = {"configurable": {"thread_id": "1", "assistant_id": "a"}}
+    # stop when about to enter node
+    assert tool_two.invoke({"my_key": "value ⛰️", "market": "DE"}, thread1) == {
+        "my_key": "value ⛰️",
+        "market": "DE",
+    }
+
+    if "shallow" not in checkpointer_name:
+        assert [c.metadata for c in tool_two.checkpointer.list(thread1)] == [
+            {
+                "parents": {},
+                "source": "loop",
+                "step": 0,
+                "writes": None,
+                "assistant_id": "a",
+                "thread_id": "1",
+            },
+            {
+                "parents": {},
+                "source": "input",
+                "step": -1,
+                "writes": {"__start__": {"my_key": "value ⛰️", "market": "DE"}},
+                "assistant_id": "a",
+                "thread_id": "1",
+            },
+        ]
+
+    assert tool_two.get_state(thread1) == StateSnapshot(
+        values={"my_key": "value ⛰️", "market": "DE"},
+        tasks=(PregelTask(AnyStr(), "tool_two_slow", (PULL, "tool_two_slow")),),
+        next=("tool_two_slow",),
+        config={
+            "configurable": {
+                "thread_id": "1",
+                "checkpoint_ns": AnyStr(),
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        created_at=AnyStr(),
+        metadata={
+            "parents": {},
+            "source": "loop",
+            "step": 0,
+            "writes": None,
+            "assistant_id": "a",
+            "thread_id": "1",
+        },
+        parent_config=(
+            None
+            if "shallow" in checkpointer_name
+            else list(tool_two.checkpointer.list(thread1, limit=2))[-1].config
+        ),
+    )
+    # resume, for same result as above
+    assert tool_two.invoke(None, thread1, debug=1) == {
+        "my_key": "value ⛰️ slow",
+        "market": "DE",
+    }
+    assert tool_two.get_state(thread1) == StateSnapshot(
+        values={"my_key": "value ⛰️ slow", "market": "DE"},
+        tasks=(),
+        next=(),
+        config={
+            "configurable": {
+                "thread_id": "1",
+                "checkpoint_ns": AnyStr(),
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        created_at=AnyStr(),
+        metadata={
+            "parents": {},
+            "source": "loop",
+            "step": 1,
+            "writes": {"tool_two_slow": {"my_key": " slow"}},
+            "assistant_id": "a",
+            "thread_id": "1",
+        },
+        parent_config=(
+            None
+            if "shallow" in checkpointer_name
+            else list(tool_two.checkpointer.list(thread1, limit=2))[-1].config
+        ),
+    )
+
+    thread2 = {"configurable": {"thread_id": "2", "assistant_id": "a"}}
+    # stop when about to enter node
+    assert tool_two.invoke({"my_key": "value", "market": "US"}, thread2) == {
+        "my_key": "value",
+        "market": "US",
+    }
+    assert tool_two.get_state(thread2) == StateSnapshot(
+        values={"my_key": "value", "market": "US"},
+        tasks=(PregelTask(AnyStr(), "tool_two_fast", (PULL, "tool_two_fast")),),
+        next=("tool_two_fast",),
+        config={
+            "configurable": {
+                "thread_id": "2",
+                "checkpoint_ns": AnyStr(),
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        created_at=AnyStr(),
+        metadata={
+            "parents": {},
+            "source": "loop",
+            "step": 0,
+            "writes": None,
+            "assistant_id": "a",
+            "thread_id": "2",
+        },
+        parent_config=(
+            None
+            if "shallow" in checkpointer_name
+            else list(tool_two.checkpointer.list(thread2, limit=2))[-1].config
+        ),
+    )
+    # resume, for same result as above
+    assert tool_two.invoke(None, thread2, debug=1) == {
+        "my_key": "value fast",
+        "market": "US",
+    }
+    assert tool_two.get_state(thread2) == StateSnapshot(
+        values={"my_key": "value fast", "market": "US"},
+        tasks=(),
+        next=(),
+        config={
+            "configurable": {
+                "thread_id": "2",
+                "checkpoint_ns": AnyStr(),
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        created_at=AnyStr(),
+        metadata={
+            "parents": {},
+            "source": "loop",
+            "step": 1,
+            "writes": {"tool_two_fast": {"my_key": " fast"}},
+            "assistant_id": "a",
+            "thread_id": "2",
+        },
+        parent_config=(
+            None
+            if "shallow" in checkpointer_name
+            else list(tool_two.checkpointer.list(thread2, limit=2))[-1].config
+        ),
+    )
+
+    thread3 = {"configurable": {"thread_id": "3", "assistant_id": "b"}}
+    # stop when about to enter node
+    assert tool_two.invoke({"my_key": "value", "market": "US"}, thread3) == {
+        "my_key": "value",
+        "market": "US",
+    }
+    assert tool_two.get_state(thread3) == StateSnapshot(
+        values={"my_key": "value", "market": "US"},
+        tasks=(PregelTask(AnyStr(), "tool_two_fast", (PULL, "tool_two_fast")),),
+        next=("tool_two_fast",),
+        config={
+            "configurable": {
+                "thread_id": "3",
+                "checkpoint_ns": AnyStr(),
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        created_at=AnyStr(),
+        metadata={
+            "parents": {},
+            "source": "loop",
+            "step": 0,
+            "writes": None,
+            "assistant_id": "b",
+            "thread_id": "3",
+        },
+        parent_config=(
+            None
+            if "shallow" in checkpointer_name
+            else list(tool_two.checkpointer.list(thread3, limit=2))[-1].config
+        ),
+    )
+    # update state
+    tool_two.update_state(thread3, {"my_key": "key"})  # appends to my_key
+    assert tool_two.get_state(thread3) == StateSnapshot(
+        values={"my_key": "valuekey", "market": "US"},
+        tasks=(PregelTask(AnyStr(), "tool_two_fast", (PULL, "tool_two_fast")),),
+        next=("tool_two_fast",),
+        config={
+            "configurable": {
+                "thread_id": "3",
+                "checkpoint_ns": AnyStr(),
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        created_at=AnyStr(),
+        metadata={
+            "parents": {},
+            "source": "update",
+            "step": 1,
+            "writes": {START: {"my_key": "key"}},
+            "assistant_id": "b",
+            "thread_id": "3",
+        },
+        parent_config=(
+            None
+            if "shallow" in checkpointer_name
+            else list(tool_two.checkpointer.list(thread3, limit=2))[-1].config
+        ),
+    )
+    # resume, for same result as above
+    assert tool_two.invoke(None, thread3, debug=1) == {
+        "my_key": "valuekey fast",
+        "market": "US",
+    }
+    assert tool_two.get_state(thread3) == StateSnapshot(
+        values={"my_key": "valuekey fast", "market": "US"},
+        tasks=(),
+        next=(),
+        config={
+            "configurable": {
+                "thread_id": "3",
+                "checkpoint_ns": AnyStr(),
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        created_at=AnyStr(),
+        metadata={
+            "parents": {},
+            "source": "loop",
+            "step": 2,
+            "writes": {"tool_two_fast": {"my_key": " fast"}},
+            "assistant_id": "b",
+            "thread_id": "3",
+        },
+        parent_config=(
+            None
+            if "shallow" in checkpointer_name
+            else list(tool_two.checkpointer.list(thread3, limit=2))[-1].config
+        ),
+    )

@@ -1,0 +1,21 @@
+"""Payload for deleting an assistant.
+
+???+ example "Examples"
+    ```python
+    delete_params = {
+        "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000")
+    }
+    ```"""
+class AssistantsDelete(typing.TypedDict):
+    """Payload for deleting an assistant.
+
+    ???+ example "Examples"
+        ```python
+        delete_params = {
+            "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000")
+        }
+        ```
+    """
+
+    assistant_id: UUID
+    """Unique identifier for the assistant."""

@@ -1,0 +1,14 @@
+"""Parameters for deleting a thread.
+
+Called for deletes to a thread, thread version, or run"""
+class ThreadsDelete(typing.TypedDict, total=False):
+    """Parameters for deleting a thread.
+
+    Called for deletes to a thread, thread version, or run
+    """
+
+    thread_id: UUID
+    """Unique identifier for the thread."""
+
+    run_id: typing.Optional[UUID]
+    """typing.Optional run ID to filter by."""

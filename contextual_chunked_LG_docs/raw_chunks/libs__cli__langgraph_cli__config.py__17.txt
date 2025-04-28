@@ -1,0 +1,37 @@
+"""Configuration for custom authentication logic and how it integrates into the OpenAPI spec."""
+class AuthConfig(TypedDict, total=False):
+
+
+    path: str
+    """Required. Path to an instance of the Auth() class that implements custom authentication.
+
+    Format: "path/to/file.py:my_auth"
+    """
+    disable_studio_auth: bool
+    """Optional. Whether to disable LangSmith API-key authentication for requests originating the Studio. 
+
+    Defaults to False, meaning that if a particular header is set, the server will verify the `x-api-key` header
+    value is a valid API key for the deployment's workspace. If True, all requests will go through your custom
+    authentication logic, regardless of origin of the request.
+    """
+    openapi: SecurityConfig
+    """Required. Detailed security configuration that merges into your deployment's OpenAPI spec.
+
+    Example (OAuth2):
+        {
+            "securitySchemes": {
+                "OAuth2": {
+                    "type": "oauth2",
+                    "flows": {
+                        "password": {
+                            "tokenUrl": "/token",
+                            "scopes": {"me": "Read user info", "items": "Manage items"}
+                        }
+                    }
+                }
+            },
+            "security": [
+                {"OAuth2": ["me"]}
+            ]
+        }
+    """

@@ -1,0 +1,19 @@
+"""Represents the state of a thread."""
+class ThreadState(TypedDict):
+
+
+    values: Union[list[dict], dict[str, Any]]
+    """The state values."""
+    next: Sequence[str]
+    """The next nodes to execute. If empty, the thread is done until new input is 
+    received."""
+    checkpoint: Checkpoint
+    """The ID of the checkpoint."""
+    metadata: Json
+    """Metadata for this state"""
+    created_at: Optional[str]
+    """Timestamp of state creation"""
+    parent_checkpoint: Optional[Checkpoint]
+    """The ID of the parent checkpoint. If missing, this is the root checkpoint."""
+    tasks: Sequence[ThreadTask]
+    """Tasks to execute in this step. If already attempted, may contain an error."""

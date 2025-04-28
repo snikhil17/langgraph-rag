@@ -1,0 +1,11 @@
+class Submit(Protocol[P, T]):
+    def __call__(
+        self,
+        fn: Callable[P, T],
+        *args: P.args,
+        __name__: Optional[str] = None,
+        __cancel_on_exit__: bool = False,
+        __reraise_on_exit__: bool = True,
+        __next_tick__: bool = False,
+        **kwargs: P.kwargs,
+    ) -> concurrent.futures.Future[T]: ...

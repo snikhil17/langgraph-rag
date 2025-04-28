@@ -1,0 +1,4 @@
+class _ActionHandler(typing.Protocol[V]):
+    async def __call__(
+        self, *, ctx: types.AuthContext, value: V
+    ) -> types.HandlerResult: ...

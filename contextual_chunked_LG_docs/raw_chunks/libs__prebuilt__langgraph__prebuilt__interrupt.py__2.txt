@@ -1,0 +1,25 @@
+"""Configuration that defines what actions are allowed for a human interrupt.
+
+This controls the available interaction options when the graph is paused for human input.
+
+Attributes:
+    allow_ignore: Whether the human can choose to ignore/skip the current step
+    allow_respond: Whether the human can provide a text response/feedback
+    allow_edit: Whether the human can edit the provided content/state
+    allow_accept: Whether the human can accept/approve the current state"""
+class HumanInterruptConfig(TypedDict):
+    """Configuration that defines what actions are allowed for a human interrupt.
+
+    This controls the available interaction options when the graph is paused for human input.
+
+    Attributes:
+        allow_ignore: Whether the human can choose to ignore/skip the current step
+        allow_respond: Whether the human can provide a text response/feedback
+        allow_edit: Whether the human can edit the provided content/state
+        allow_accept: Whether the human can accept/approve the current state
+    """
+
+    allow_ignore: bool
+    allow_respond: bool
+    allow_edit: bool
+    allow_accept: bool

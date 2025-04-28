@@ -1,0 +1,18 @@
+def patch_checkpoint_map(
+    config: Optional[RunnableConfig], metadata: Optional[CheckpointMetadata]
+) -> RunnableConfig:
+    if config is None:
+        return config
+    elif parents := (metadata.get("parents") if metadata else None):
+        conf = config[CONF]
+        return patch_configurable(
+            config,
+            {
+                CONFIG_KEY_CHECKPOINT_MAP: {
+                    **parents,
+                    conf[CONFIG_KEY_CHECKPOINT_NS]: conf[CONFIG_KEY_CHECKPOINT_ID],
+                },
+            },
+        )
+    else:
+        return config

@@ -1,0 +1,10 @@
+"""A TypedDict representing a package"""
+class Package(TypedDict):
+
+
+    name: str
+    """The name of the package."""
+    repo: str
+    """Repository ID within github. Format is: [orgname]/[repo_name]."""
+    description: str
+    """A brief description of what the package does."""

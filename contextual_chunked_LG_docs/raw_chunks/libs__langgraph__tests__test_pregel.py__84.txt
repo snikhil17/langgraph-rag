@@ -1,0 +1,19 @@
+def test_invoke_two_processes_no_out(mocker: MockerFixture) -> None:
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    one = Channel.subscribe_to("input") | add_one | Channel.write_to("between")
+    two = Channel.subscribe_to("between") | add_one
+
+    app = Pregel(
+        nodes={"one": one, "two": two},
+        channels={
+            "input": LastValue(int),
+            "between": LastValue(int),
+            "output": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+    )
+
+    # It finishes executing (once no more messages being published)
+    # but returns nothing, as nothing was published to OUT topic
+    assert app.invoke(2) is None

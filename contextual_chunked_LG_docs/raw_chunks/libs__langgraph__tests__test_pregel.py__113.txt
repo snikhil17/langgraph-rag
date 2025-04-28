@@ -1,0 +1,34 @@
+def test_remove_message_via_state_update(
+    request: pytest.FixtureRequest, checkpointer_name: str
+) -> None:
+    from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
+
+    workflow = MessageGraph()
+    workflow.add_node(
+        "chatbot",
+        lambda state: [
+            AIMessage(
+                content="Hello! How can I help you",
+            )
+        ],
+    )
+
+    workflow.set_entry_point("chatbot")
+    workflow.add_edge("chatbot", END)
+
+    checkpointer = request.getfixturevalue("checkpointer_" + checkpointer_name)
+    app = workflow.compile(checkpointer=checkpointer)
+    config = {"configurable": {"thread_id": "1"}}
+    output = app.invoke([HumanMessage(content="Hi")], config=config)
+    app.update_state(config, values=[RemoveMessage(id=output[-1].id)])
+
+    updated_state = app.get_state(config)
+
+    assert len(updated_state.values) == 1
+    assert updated_state.values[-1].content == "Hi"
+
+    app.checkpointer.delete_thread(config["configurable"]["thread_id"])
+
+    # Verify that the message was removed from the checkpointer
+    assert app.checkpointer.get_tuple(config) is None
+    assert [*app.get_state_history(config)] == []

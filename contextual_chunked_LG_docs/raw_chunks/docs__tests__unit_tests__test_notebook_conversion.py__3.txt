@@ -1,0 +1,4 @@
+"""Test logic to convert links in markdown cells."""
+def test_link_conversion(source: str, expected: str) -> None:
+
+    assert _convert_links_in_markdown(source) == expected

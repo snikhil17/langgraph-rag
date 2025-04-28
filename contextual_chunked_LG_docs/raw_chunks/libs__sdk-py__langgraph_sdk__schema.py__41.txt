@@ -1,0 +1,6 @@
+"""Response structure for listing namespaces."""
+class ListNamespaceResponse(TypedDict):
+
+
+    namespaces: list[list[str]]
+    """A list of namespace paths, where each path is a list of strings."""

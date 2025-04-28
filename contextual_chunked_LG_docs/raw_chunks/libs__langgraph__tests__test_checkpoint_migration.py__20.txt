@@ -1,0 +1,41 @@
+def test_latest_checkpoint_state_graph(
+    request: pytest.FixtureRequest, checkpointer_name: str
+) -> None:
+    checkpointer: BaseCheckpointSaver = request.getfixturevalue(
+        f"checkpointer_{checkpointer_name}"
+    )
+
+    builder = make_state_graph()
+    app = builder.compile(checkpointer=checkpointer)
+    config = {"configurable": {"thread_id": "1"}}
+
+    assert [*app.stream({"query": "what is weather in sf"}, config)] == [
+        {"rewrite_query": {"query": "query: what is weather in sf"}},
+        {"analyzer_one": {"query": "analyzed: query: what is weather in sf"}},
+        {"retriever_two": {"docs": ["doc3", "doc4"]}},
+        {"retriever_one": {"docs": ["doc1", "doc2"]}},
+        {
+            "__interrupt__": (
+                Interrupt(
+                    value="",
+                    resumable=True,
+                    ns=[AnyStr("qa:")],
+                ),
+            )
+        },
+    ]
+
+    assert [*app.stream(Command(resume=""), config)] == [
+        {"qa": {"answer": "doc1,doc2,doc3,doc4"}},
+    ]
+
+    # check history with current checkpoints matches expected history
+    history = [*app.get_state_history(config)]
+    expected_history = get_expected_history()
+    assert len(history) == len(expected_history)
+    assert history[0] == expected_history[0]
+    assert history[1] == expected_history[1]
+    assert history[2] == expected_history[2]
+    assert history[3] == expected_history[3]
+    assert history[4] == expected_history[4]
+    assert history[5] == expected_history[5]

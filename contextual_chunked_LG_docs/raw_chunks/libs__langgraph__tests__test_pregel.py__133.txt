@@ -1,0 +1,11 @@
+def test_root_mixed_return() -> None:
+    def my_node(state: list[str]):
+        return [Command(update=["a"]), ["b"]]
+
+    graph = StateGraph(Annotated[list[str], operator.add])
+
+    graph.add_node(my_node)
+    graph.add_edge(START, "my_node")
+    graph = graph.compile()
+
+    assert graph.invoke([]) == ["a", "b"]

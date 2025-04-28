@@ -1,0 +1,48 @@
+"""Test a simple graph with a single RetryPolicy for a node."""
+def test_graph_with_single_retry_policy():
+
+
+    class State(TypedDict):
+        foo: str
+
+    attempt_count = 0
+
+    def failing_node(state: State):
+        nonlocal attempt_count
+        attempt_count += 1
+        if attempt_count < 3:  # Fail the first two attempts
+            raise ValueError("Intentional failure")
+        return {"foo": "success"}
+
+    def other_node(state: State):
+        return {"foo": "other_node"}
+
+    # Create a retry policy with specific parameters
+    retry_policy = RetryPolicy(
+        max_attempts=3,
+        initial_interval=0.01,  # Short interval for tests
+        backoff_factor=2.0,
+        jitter=False,  # Disable jitter for predictable timing
+        retry_on=ValueError,
+    )
+
+    # Create and compile the graph
+    graph = (
+        StateGraph(State)
+        .add_node("failing_node", failing_node, retry=retry_policy)
+        .add_node("other_node", other_node)
+        .add_edge(START, "failing_node")
+        .add_edge("failing_node", "other_node")
+        .compile()
+    )
+
+    with patch("time.sleep") as mock_sleep:
+        result = graph.invoke({"foo": ""})
+
+    # Verify retry behavior
+    assert attempt_count == 3  # The node should have been tried 3 times
+    assert result["foo"] == "other_node"  # Final result should be from other_node
+
+    # Verify the sleep intervals
+    call_args_list = [args[0][0] for args in mock_sleep.call_args_list]
+    assert call_args_list == [0.01, 0.02]

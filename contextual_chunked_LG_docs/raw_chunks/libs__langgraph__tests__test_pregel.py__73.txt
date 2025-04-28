@@ -1,0 +1,273 @@
+def test_pending_writes_resume(
+    request: pytest.FixtureRequest, checkpointer_name: str, checkpoint_during: bool
+) -> None:
+    if not checkpoint_during and "shallow" in checkpointer_name:
+        pytest.skip("Checkpointing during execution not supported")
+
+    checkpointer: BaseCheckpointSaver = request.getfixturevalue(
+        f"checkpointer_{checkpointer_name}"
+    )
+
+    class State(TypedDict):
+        value: Annotated[int, operator.add]
+
+    class AwhileMaker:
+        def __init__(self, sleep: float, rtn: Union[dict, Exception]) -> None:
+            self.sleep = sleep
+            self.rtn = rtn
+            self.reset()
+
+        def __call__(self, input: State) -> Any:
+            self.calls += 1
+            time.sleep(self.sleep)
+            if isinstance(self.rtn, Exception):
+                raise self.rtn
+            else:
+                return self.rtn
+
+        def reset(self):
+            self.calls = 0
+
+    one = AwhileMaker(0.1, {"value": 2})
+    two = AwhileMaker(0.2, ConnectionError("I'm not good"))
+    builder = StateGraph(State)
+    builder.add_node("one", one)
+    builder.add_node(
+        "two", two, retry=RetryPolicy(max_attempts=2, initial_interval=0, jitter=False)
+    )
+    builder.add_edge(START, "one")
+    builder.add_edge(START, "two")
+    graph = builder.compile(checkpointer=checkpointer)
+
+    thread1: RunnableConfig = {"configurable": {"thread_id": "1"}}
+    with pytest.raises(ConnectionError, match="I'm not good"):
+        graph.invoke({"value": 1}, thread1, checkpoint_during=checkpoint_during)
+
+    # both nodes should have been called once
+    assert one.calls == 1
+    assert two.calls == 2  # two attempts
+
+    # latest checkpoint should be before nodes "one", "two"
+    # but we should have applied the write from "one"
+    state = graph.get_state(thread1)
+    assert state is not None
+    assert state.values == {"value": 3}
+    assert state.next == ("two",)
+    assert state.tasks == (
+        PregelTask(AnyStr(), "one", (PULL, "one"), result={"value": 2}),
+        PregelTask(AnyStr(), "two", (PULL, "two"), 'ConnectionError("I\'m not good")'),
+    )
+    assert state.metadata == {
+        "parents": {},
+        "source": "loop",
+        "step": 0,
+        "writes": None,
+        "thread_id": "1",
+    }
+    # get_state with checkpoint_id should not apply any pending writes
+    state = graph.get_state(state.config)
+    assert state is not None
+    assert state.values == {"value": 1}
+    assert state.next == ("one", "two")
+    # should contain pending write of "one"
+    checkpoint = checkpointer.get_tuple(thread1)
+    assert checkpoint is not None
+    # should contain error from "two"
+    expected_writes = [
+        (AnyStr(), "value", 2),
+        (AnyStr(), ERROR, 'ConnectionError("I\'m not good")'),
+    ]
+    assert len(checkpoint.pending_writes) == 2
+    assert all(w in expected_writes for w in checkpoint.pending_writes)
+    # both non-error pending writes come from same task
+    non_error_writes = [w for w in checkpoint.pending_writes if w[1] != ERROR]
+    # error write is from the other task
+    error_write = next(w for w in checkpoint.pending_writes if w[1] == ERROR)
+    assert error_write[0] != non_error_writes[0][0]
+
+    # resume execution
+    with pytest.raises(ConnectionError, match="I'm not good"):
+        graph.invoke(None, thread1, checkpoint_during=checkpoint_during)
+
+    # node "one" succeeded previously, so shouldn't be called again
+    assert one.calls == 1
+    # node "two" should have been called once again
+    assert two.calls == 4  # two attempts before + two attempts now
+
+    # confirm no new checkpoints saved
+    state_two = graph.get_state(thread1)
+    assert state_two.metadata == state.metadata
+
+    # resume execution, without exception
+    two.rtn = {"value": 3}
+    # both the pending write and the new write were applied, 1 + 2 + 3 = 6
+    assert graph.invoke(None, thread1, checkpoint_during=checkpoint_during) == {
+        "value": 6
+    }
+
+    if "shallow" in checkpointer_name:
+        assert len(list(checkpointer.list(thread1))) == 1
+        return
+
+    # check all final checkpoints
+    checkpoints = [c for c in checkpointer.list(thread1)]
+    # we should have 3
+    assert len(checkpoints) == (3 if checkpoint_during else 2)
+    # the last one not too interesting for this test
+    assert checkpoints[0] == CheckpointTuple(
+        config={
+            "configurable": {
+                "thread_id": "1",
+                "checkpoint_ns": "",
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        checkpoint={
+            "v": 3,
+            "id": AnyStr(),
+            "ts": AnyStr(),
+            "pending_sends": [],
+            "versions_seen": {
+                "one": {
+                    "branch:to:one": AnyVersion(),
+                },
+                "two": {
+                    "branch:to:two": AnyVersion(),
+                },
+                "__input__": {},
+                "__start__": {
+                    "__start__": AnyVersion(),
+                },
+                "__interrupt__": {
+                    "value": AnyVersion(),
+                    "__start__": AnyVersion(),
+                    "branch:to:one": AnyVersion(),
+                    "branch:to:two": AnyVersion(),
+                },
+            },
+            "channel_versions": {
+                "value": AnyVersion(),
+                "__start__": AnyVersion(),
+                "branch:to:one": AnyVersion(),
+                "branch:to:two": AnyVersion(),
+            },
+            "channel_values": {"value": 6},
+        },
+        metadata={
+            "parents": {},
+            "step": 1,
+            "source": "loop",
+            "writes": {"one": {"value": 2}, "two": {"value": 3}},
+            "thread_id": "1",
+        },
+        parent_config={
+            "configurable": {
+                "thread_id": "1",
+                "checkpoint_ns": "",
+                "checkpoint_id": checkpoints[1].config["configurable"]["checkpoint_id"],
+            }
+        },
+        pending_writes=[],
+    )
+    # the previous one we assert that pending writes contains both
+    # - original error
+    # - successful writes from resuming after preventing error
+    assert checkpoints[1] == CheckpointTuple(
+        config={
+            "configurable": {
+                "thread_id": "1",
+                "checkpoint_ns": "",
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        checkpoint={
+            "v": 3,
+            "id": AnyStr(),
+            "ts": AnyStr(),
+            "pending_sends": [],
+            "versions_seen": {
+                "__input__": {},
+                "__start__": {
+                    "__start__": AnyVersion(),
+                },
+            },
+            "channel_versions": {
+                "value": AnyVersion(),
+                "__start__": AnyVersion(),
+                "branch:to:one": AnyVersion(),
+                "branch:to:two": AnyVersion(),
+            },
+            "channel_values": {
+                "value": 1,
+                "branch:to:one": None,
+                "branch:to:two": None,
+            },
+        },
+        metadata={
+            "parents": {},
+            "step": 0,
+            "source": "loop",
+            "writes": None,
+            "thread_id": "1",
+        },
+        parent_config={
+            "configurable": {
+                "thread_id": "1",
+                "checkpoint_ns": "",
+                "checkpoint_id": (
+                    checkpoints[2].config["configurable"]["checkpoint_id"]
+                    if checkpoint_during
+                    else AnyStr()
+                ),
+            }
+        },
+        pending_writes=(
+            UnsortedSequence(
+                (AnyStr(), "value", 2),
+                (AnyStr(), "__error__", 'ConnectionError("I\'m not good")'),
+                (AnyStr(), "value", 3),
+            )
+            if checkpoint_during
+            else UnsortedSequence(
+                (AnyStr(), "value", 2),
+                (AnyStr(), "__error__", 'ConnectionError("I\'m not good")'),
+                # the write against the previous checkpoint is not saved, as it is
+                # produced in a run where only the next checkpoint (the last) is saved
+            )
+        ),
+    )
+    if not checkpoint_during:
+        return
+    assert checkpoints[2] == CheckpointTuple(
+        config={
+            "configurable": {
+                "thread_id": "1",
+                "checkpoint_ns": "",
+                "checkpoint_id": AnyStr(),
+            }
+        },
+        checkpoint={
+            "v": 3,
+            "id": AnyStr(),
+            "ts": AnyStr(),
+            "pending_sends": [],
+            "versions_seen": {"__input__": {}},
+            "channel_versions": {
+                "__start__": AnyVersion(),
+            },
+            "channel_values": {"__start__": {"value": 1}},
+        },
+        metadata={
+            "parents": {},
+            "step": -1,
+            "source": "input",
+            "writes": {"__start__": {"value": 1}},
+            "thread_id": "1",
+        },
+        parent_config=None,
+        pending_writes=UnsortedSequence(
+            (AnyStr(), "value", 1),
+            (AnyStr(), "branch:to:one", None),
+            (AnyStr(), "branch:to:two", None),
+        ),
+    )

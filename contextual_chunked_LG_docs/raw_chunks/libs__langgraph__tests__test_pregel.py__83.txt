@@ -1,0 +1,28 @@
+def test_invoke_two_processes_one_in_two_out(mocker: MockerFixture) -> None:
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+
+    one = (
+        Channel.subscribe_to("input") | add_one | Channel.write_to("output", "between")
+    )
+    two = Channel.subscribe_to("between") | add_one | Channel.write_to("output")
+
+    app = Pregel(
+        nodes={"one": one, "two": two},
+        channels={
+            "input": LastValue(int),
+            "between": LastValue(int),
+            "output": LastValue(int),
+        },
+        stream_channels=["output", "between"],
+        input_channels="input",
+        output_channels="output",
+    )
+
+    assert [c for c in app.stream(2, stream_mode="updates")] == [
+        {"one": {"between": 3, "output": 3}},
+        {"two": {"output": 4}},
+    ]
+    assert [c for c in app.stream(2)] == [
+        {"between": 3, "output": 3},
+        {"between": 3, "output": 4},
+    ]

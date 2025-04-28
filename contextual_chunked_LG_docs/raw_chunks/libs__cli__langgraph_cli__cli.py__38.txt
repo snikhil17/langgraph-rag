@@ -1,0 +1,42 @@
+"""Prepare the arguments and stdin for running the LangGraph API server."""
+def prepare(
+    runner,
+    *,
+    capabilities: DockerCapabilities,
+    config_path: pathlib.Path,
+    docker_compose: Optional[pathlib.Path],
+    port: int,
+    pull: bool,
+    watch: bool,
+    verbose: bool,
+    debugger_port: Optional[int] = None,
+    debugger_base_url: Optional[str] = None,
+    postgres_uri: Optional[str] = None,
+    image: Optional[str] = None,
+) -> Tuple[List[str], str]:
+
+    config_json = langgraph_cli.config.validate_config_file(config_path)
+    # pull latest images
+    if pull:
+        runner.run(
+            subp_exec(
+                "docker",
+                "pull",
+                langgraph_cli.config.docker_tag(config_json),
+                verbose=verbose,
+            )
+        )
+
+    args, stdin = prepare_args_and_stdin(
+        capabilities=capabilities,
+        config_path=config_path,
+        config=config_json,
+        docker_compose=docker_compose,
+        port=port,
+        watch=watch,
+        debugger_port=debugger_port,
+        debugger_base_url=debugger_base_url or f"http://127.0.0.1:{port}",
+        postgres_uri=postgres_uri,
+        image=image,
+    )
+    return args, stdin

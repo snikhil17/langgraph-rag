@@ -1,0 +1,2 @@
+def _coerce_state(schema: type[Any], input: dict[str, Any]) -> dict[str, Any]:
+    return schema(**input)

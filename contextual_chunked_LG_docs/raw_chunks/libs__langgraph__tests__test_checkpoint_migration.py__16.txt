@@ -1,0 +1,247 @@
+def get_expected_history(*, exc_task_results: int = 0) -> list[StateSnapshot]:
+    return [
+        StateSnapshot(
+            values={
+                "query": "analyzed: query: what is weather in sf",
+                "answer": "doc1,doc2,doc3,doc4",
+                "docs": ["doc1", "doc2", "doc3", "doc4"],
+            },
+            next=(),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "source": "loop",
+                "writes": {"qa": {"answer": "doc1,doc2,doc3,doc4"}},
+                "step": 4,
+                "parents": {},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            tasks=(),
+        ),
+        StateSnapshot(
+            values={
+                "query": "analyzed: query: what is weather in sf",
+                "docs": ["doc1", "doc2", "doc3", "doc4"],
+            },
+            next=("qa",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "source": "loop",
+                "writes": {"retriever_one": {"docs": ["doc1", "doc2"]}},
+                "step": 3,
+                "parents": {},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            tasks=(
+                PregelTask(
+                    id=AnyStr(),
+                    name="qa",
+                    path=("__pregel_pull", "qa"),
+                    error=None,
+                    interrupts=()
+                    if exc_task_results
+                    else (
+                        Interrupt(
+                            value="",
+                            resumable=True,
+                            ns=[AnyStr("qa:")],
+                        ),
+                    ),
+                    state=None,
+                    result=None
+                    if exc_task_results
+                    else {"answer": "doc1,doc2,doc3,doc4"},
+                ),
+            ),
+        ),
+        StateSnapshot(
+            values={
+                "query": "analyzed: query: what is weather in sf",
+                "docs": ["doc3", "doc4"],
+            },
+            next=("retriever_one",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "source": "loop",
+                "writes": {
+                    "analyzer_one": {"query": "analyzed: query: what is weather in sf"},
+                    "retriever_two": {"docs": ["doc3", "doc4"]},
+                },
+                "step": 2,
+                "parents": {},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            tasks=(
+                PregelTask(
+                    id=AnyStr(),
+                    name="retriever_one",
+                    path=("__pregel_pull", "retriever_one"),
+                    error=None,
+                    interrupts=(),
+                    state=None,
+                    result=None if exc_task_results else {"docs": ["doc1", "doc2"]},
+                ),
+            ),
+        ),
+        StateSnapshot(
+            values={"query": "query: what is weather in sf", "docs": []},
+            next=("analyzer_one", "retriever_two"),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "source": "loop",
+                "writes": {"rewrite_query": {"query": "query: what is weather in sf"}},
+                "step": 1,
+                "parents": {},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            tasks=(
+                PregelTask(
+                    id=AnyStr(),
+                    name="analyzer_one",
+                    path=("__pregel_pull", "analyzer_one"),
+                    error=None,
+                    interrupts=(),
+                    state=None,
+                    result=None
+                    if exc_task_results
+                    else {"query": "analyzed: query: what is weather in sf"},
+                ),
+                PregelTask(
+                    id=AnyStr(),
+                    name="retriever_two",
+                    path=("__pregel_pull", "retriever_two"),
+                    error=None,
+                    interrupts=(),
+                    state=None,
+                    result=None
+                    if exc_task_results >= 2
+                    else {"docs": ["doc3", "doc4"]},
+                ),
+            ),
+        ),
+        StateSnapshot(
+            values={"query": "what is weather in sf", "docs": []},
+            next=("rewrite_query",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "source": "loop",
+                "writes": None,
+                "step": 0,
+                "parents": {},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            tasks=(
+                PregelTask(
+                    id=AnyStr(),
+                    name="rewrite_query",
+                    path=("__pregel_pull", "rewrite_query"),
+                    error=None,
+                    interrupts=(),
+                    state=None,
+                    result=None
+                    if exc_task_results
+                    else {"query": "query: what is weather in sf"},
+                ),
+            ),
+        ),
+        StateSnapshot(
+            values={"docs": []},
+            next=("__start__",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "source": "input",
+                "writes": {"__start__": {"query": "what is weather in sf"}},
+                "step": -1,
+                "parents": {},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=None,
+            tasks=(
+                PregelTask(
+                    id=AnyStr(),
+                    name="__start__",
+                    path=("__pregel_pull", "__start__"),
+                    error=None,
+                    interrupts=(),
+                    state=None,
+                    result={"query": "what is weather in sf"},
+                ),
+            ),
+        ),
+    ]

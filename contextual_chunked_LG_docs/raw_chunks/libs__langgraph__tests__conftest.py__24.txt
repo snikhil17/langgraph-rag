@@ -1,0 +1,2 @@
+def anyio_backend():
+    return "asyncio"

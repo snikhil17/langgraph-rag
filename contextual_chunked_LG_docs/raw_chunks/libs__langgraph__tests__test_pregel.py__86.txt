@@ -1,0 +1,44 @@
+def test_channel_enter_exit_timing(mocker: MockerFixture) -> None:
+    setup = mocker.Mock()
+    cleanup = mocker.Mock()
+
+    @contextmanager
+    def an_int() -> Generator[int, None, None]:
+        setup()
+        try:
+            yield 5
+        finally:
+            cleanup()
+
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    one = Channel.subscribe_to("input") | add_one | Channel.write_to("inbox")
+    two = (
+        Channel.subscribe_to("inbox")
+        | RunnableLambda(add_one).batch
+        | Channel.write_to("output").batch
+    )
+
+    app = Pregel(
+        nodes={"one": one, "two": two},
+        channels={
+            "inbox": Topic(int),
+            "ctx": Context(an_int),
+            "output": LastValue(int),
+            "input": LastValue(int),
+        },
+        input_channels="input",
+        output_channels=["inbox", "output"],
+        stream_channels=["inbox", "output"],
+    )
+
+    assert setup.call_count == 0
+    assert cleanup.call_count == 0
+    for i, chunk in enumerate(app.stream(2)):
+        assert setup.call_count == 1, "Expected setup to be called once"
+        if i == 0:
+            assert chunk == {"inbox": [3]}
+        elif i == 1:
+            assert chunk == {"output": 4}
+        else:
+            assert False, "Expected only two chunks"
+    assert cleanup.call_count == 1, "Expected cleanup to be called once"

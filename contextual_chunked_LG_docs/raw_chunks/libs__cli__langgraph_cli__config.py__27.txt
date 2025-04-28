@@ -1,0 +1,102 @@
+"""A container for referencing and managing local Python dependencies.
+
+A "local dependency" is any entry in the config's `dependencies` list
+that starts with "." (dot), denoting a relative path
+to a local directory containing Python code.
+
+For each local dependency, the system inspects its directory to
+determine how it should be installed inside the Docker container.
+
+Specifically, we detect:
+
+- **Real packages**: Directories containing a `pyproject.toml` or a `setup.py`.
+  These can be installed with pip as a regular Python package.
+- **Faux packages**: Directories that do not include a `pyproject.toml` or
+  `setup.py` but do contain Python files and possibly an `__init__.py`. For
+  these, the code dynamically generates a minimal `pyproject.toml` in the
+  Docker image so that they can still be installed with pip.
+- **Requirements files**: If a local dependency directory
+  has a `requirements.txt`, it is tracked so that those dependencies
+  can be installed within the Docker container before installing the local package.
+
+Attributes:
+    pip_reqs: A list of (host_requirements_path, container_requirements_path)
+        tuples. Each entry points to a local `requirements.txt` file and where
+        it should be placed inside the Docker container before running `pip install`.
+
+    real_pkgs: A dictionary mapping a local directory path (host side) to a
+        tuple of (dependency_string, container_package_path). These directories
+        contain the necessary files (e.g., `pyproject.toml` or `setup.py`) to be
+        installed as a standard Python package with pip.
+
+    faux_pkgs: A dictionary mapping a local directory path (host side) to a
+        tuple of (dependency_string, container_package_path). For these
+        directories—called "faux packages"—the code will generate a minimal
+        `pyproject.toml` inside the Docker image. This ensures that pip
+        recognizes them as installable packages, even though they do not
+        natively include packaging metadata.
+
+    working_dir: The path inside the Docker container to use as the working
+        directory. If the local dependency `"."` is present in the config, this
+        field captures the path where that dependency will appear in the
+        container (e.g., `/deps/<name>` or similar). Otherwise, it may be `None`.
+
+    additional_contexts: A list of paths to directories that contain local
+        dependencies in parent directories. These directories are added to the
+        Docker build context to ensure that the Dockerfile can access them."""
+class LocalDeps(NamedTuple):
+    """A container for referencing and managing local Python dependencies.
+
+    A "local dependency" is any entry in the config's `dependencies` list
+    that starts with "." (dot), denoting a relative path
+    to a local directory containing Python code.
+
+    For each local dependency, the system inspects its directory to
+    determine how it should be installed inside the Docker container.
+
+    Specifically, we detect:
+
+    - **Real packages**: Directories containing a `pyproject.toml` or a `setup.py`.
+      These can be installed with pip as a regular Python package.
+    - **Faux packages**: Directories that do not include a `pyproject.toml` or
+      `setup.py` but do contain Python files and possibly an `__init__.py`. For
+      these, the code dynamically generates a minimal `pyproject.toml` in the
+      Docker image so that they can still be installed with pip.
+    - **Requirements files**: If a local dependency directory
+      has a `requirements.txt`, it is tracked so that those dependencies
+      can be installed within the Docker container before installing the local package.
+
+    Attributes:
+        pip_reqs: A list of (host_requirements_path, container_requirements_path)
+            tuples. Each entry points to a local `requirements.txt` file and where
+            it should be placed inside the Docker container before running `pip install`.
+
+        real_pkgs: A dictionary mapping a local directory path (host side) to a
+            tuple of (dependency_string, container_package_path). These directories
+            contain the necessary files (e.g., `pyproject.toml` or `setup.py`) to be
+            installed as a standard Python package with pip.
+
+        faux_pkgs: A dictionary mapping a local directory path (host side) to a
+            tuple of (dependency_string, container_package_path). For these
+            directories—called "faux packages"—the code will generate a minimal
+            `pyproject.toml` inside the Docker image. This ensures that pip
+            recognizes them as installable packages, even though they do not
+            natively include packaging metadata.
+
+        working_dir: The path inside the Docker container to use as the working
+            directory. If the local dependency `"."` is present in the config, this
+            field captures the path where that dependency will appear in the
+            container (e.g., `/deps/<name>` or similar). Otherwise, it may be `None`.
+
+        additional_contexts: A list of paths to directories that contain local
+            dependencies in parent directories. These directories are added to the
+            Docker build context to ensure that the Dockerfile can access them.
+    """
+
+    pip_reqs: list[tuple[pathlib.Path, str]]
+    real_pkgs: dict[pathlib.Path, tuple[str, str]]
+    faux_pkgs: dict[pathlib.Path, tuple[str, str]]
+    # if . is in dependencies, use it as working_dir
+    working_dir: Optional[str] = None
+    # if there are local dependencies in parent directories, use additional_contexts
+    additional_contexts: list[pathlib.Path] = None

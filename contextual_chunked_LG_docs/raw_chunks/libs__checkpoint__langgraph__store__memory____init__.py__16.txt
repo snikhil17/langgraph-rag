@@ -1,0 +1,22 @@
+"""Compare values in a JSONB-like way, handling nested objects."""
+def _compare_values(item_value: Any, filter_value: Any) -> bool:
+
+    if isinstance(filter_value, dict):
+        if any(k.startswith("$") for k in filter_value):
+            return all(
+                _apply_operator(item_value, op_key, op_value)
+                for op_key, op_value in filter_value.items()
+            )
+        if not isinstance(item_value, dict):
+            return False
+        return all(
+            _compare_values(item_value.get(k), v) for k, v in filter_value.items()
+        )
+    elif isinstance(filter_value, (list, tuple)):
+        return (
+            isinstance(item_value, (list, tuple))
+            and len(item_value) == len(filter_value)
+            and all(_compare_values(iv, fv) for iv, fv in zip(item_value, filter_value))
+        )
+    else:
+        return item_value == filter_value

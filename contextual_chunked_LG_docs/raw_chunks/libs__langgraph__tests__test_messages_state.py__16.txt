@@ -1,0 +1,6 @@
+def test_update_existing_message():
+    left = [HumanMessage(content="Hello", id="1")]
+    right = HumanMessage(content="Hello again", id="1")
+    result = add_messages(left, right)
+    expected_result = [HumanMessage(content="Hello again", id="1")]
+    assert result == expected_result

@@ -1,0 +1,191 @@
+"""Namespace for type definitions of different API operations.
+
+This class organizes type definitions for create, read, update, delete,
+and search operations across different resources (threads, assistants, crons).
+
+???+ note "Usage"
+    ```python
+    from langgraph_sdk import Auth
+
+    auth = Auth()
+
+    @auth.on
+    def handle_all(params: Auth.on.value):
+        raise Exception("Not authorized")
+
+    @auth.on.threads.create
+    def handle_thread_create(params: Auth.on.threads.create.value):
+        # Handle thread creation
+        pass
+
+    @auth.on.assistants.search
+    def handle_assistant_search(params: Auth.on.assistants.search.value):
+        # Handle assistant search
+        pass
+    ```"""
+class on:
+    """Namespace for type definitions of different API operations.
+
+    This class organizes type definitions for create, read, update, delete,
+    and search operations across different resources (threads, assistants, crons).
+
+    ???+ note "Usage"
+        ```python
+        from langgraph_sdk import Auth
+
+        auth = Auth()
+
+        @auth.on
+        def handle_all(params: Auth.on.value):
+            raise Exception("Not authorized")
+
+        @auth.on.threads.create
+        def handle_thread_create(params: Auth.on.threads.create.value):
+            # Handle thread creation
+            pass
+
+        @auth.on.assistants.search
+        def handle_assistant_search(params: Auth.on.assistants.search.value):
+            # Handle assistant search
+            pass
+        ```
+    """
+
+    value = typing.Dict[str, typing.Any]
+
+    class threads:
+        """Types for thread-related operations."""
+
+        value = typing.Union[
+            ThreadsCreate, ThreadsRead, ThreadsUpdate, ThreadsDelete, ThreadsSearch
+        ]
+
+        class create:
+            """Type for thread creation parameters."""
+
+            value = ThreadsCreate
+
+        class create_run:
+            """Type for creating or streaming a run."""
+
+            value = RunsCreate
+
+        class read:
+            """Type for thread read parameters."""
+
+            value = ThreadsRead
+
+        class update:
+            """Type for thread update parameters."""
+
+            value = ThreadsUpdate
+
+        class delete:
+            """Type for thread deletion parameters."""
+
+            value = ThreadsDelete
+
+        class search:
+            """Type for thread search parameters."""
+
+            value = ThreadsSearch
+
+    class assistants:
+        """Types for assistant-related operations."""
+
+        value = typing.Union[
+            AssistantsCreate,
+            AssistantsRead,
+            AssistantsUpdate,
+            AssistantsDelete,
+            AssistantsSearch,
+        ]
+
+        class create:
+            """Type for assistant creation parameters."""
+
+            value = AssistantsCreate
+
+        class read:
+            """Type for assistant read parameters."""
+
+            value = AssistantsRead
+
+        class update:
+            """Type for assistant update parameters."""
+
+            value = AssistantsUpdate
+
+        class delete:
+            """Type for assistant deletion parameters."""
+
+            value = AssistantsDelete
+
+        class search:
+            """Type for assistant search parameters."""
+
+            value = AssistantsSearch
+
+    class crons:
+        """Types for cron-related operations."""
+
+        value = typing.Union[
+            CronsCreate, CronsRead, CronsUpdate, CronsDelete, CronsSearch
+        ]
+
+        class create:
+            """Type for cron creation parameters."""
+
+            value = CronsCreate
+
+        class read:
+            """Type for cron read parameters."""
+
+            value = CronsRead
+
+        class update:
+            """Type for cron update parameters."""
+
+            value = CronsUpdate
+
+        class delete:
+            """Type for cron deletion parameters."""
+
+            value = CronsDelete
+
+        class search:
+            """Type for cron search parameters."""
+
+            value = CronsSearch
+
+    class store:
+        """Types for store-related operations."""
+
+        value = typing.Union[
+            StoreGet, StoreSearch, StoreListNamespaces, StorePut, StoreDelete
+        ]
+
+        class put:
+            """Type for store put parameters."""
+
+            value = StorePut
+
+        class get:
+            """Type for store get parameters."""
+
+            value = StoreGet
+
+        class search:
+            """Type for store search parameters."""
+
+            value = StoreSearch
+
+        class delete:
+            """Type for store delete parameters."""
+
+            value = StoreDelete
+
+        class list_namespaces:
+            """Type for store list namespaces parameters."""
+
+            value = StoreListNamespaces

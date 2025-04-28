@@ -1,0 +1,5 @@
+def update_editor(editor, new_editor):
+    # Can only set at the outset
+    if not editor:
+        return new_editor
+    return editor

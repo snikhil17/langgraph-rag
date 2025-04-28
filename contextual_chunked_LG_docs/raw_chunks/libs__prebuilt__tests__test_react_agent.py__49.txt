@@ -1,0 +1,3 @@
+class _InjectedStatePydanticV2Schema(BaseModel):
+    messages: list
+    foo: str

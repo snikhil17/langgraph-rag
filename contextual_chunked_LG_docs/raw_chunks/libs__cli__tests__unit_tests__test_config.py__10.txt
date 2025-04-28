@@ -1,0 +1,111 @@
+def test_validate_config():
+    # minimal config
+    expected_config = {
+        "dependencies": ["."],
+        "graphs": {
+            "agent": "./agent.py:graph",
+        },
+    }
+    actual_config = validate_config(expected_config)
+    expected_config = {
+        "_INTERNAL_docker_tag": None,
+        "python_version": "3.11",
+        "node_version": None,
+        "pip_config_file": None,
+        "dockerfile_lines": [],
+        "env": {},
+        "store": None,
+        "auth": None,
+        "checkpointer": None,
+        "http": None,
+        "ui": None,
+        "ui_config": None,
+        **expected_config,
+    }
+    assert actual_config == expected_config
+
+    # full config
+    env = ".env"
+    expected_config = {
+        "_INTERNAL_docker_tag": None,
+        "python_version": "3.12",
+        "node_version": None,
+        "pip_config_file": "pipconfig.txt",
+        "dockerfile_lines": ["ARG meow"],
+        "dependencies": [".", "langchain"],
+        "graphs": {
+            "agent": "./agent.py:graph",
+        },
+        "env": env,
+        "store": None,
+        "auth": None,
+        "checkpointer": None,
+        "http": None,
+        "ui": None,
+        "ui_config": None,
+    }
+    actual_config = validate_config(expected_config)
+    assert actual_config == expected_config
+    expected_config["python_version"] = "3.13"
+    actual_config = validate_config(expected_config)
+    assert actual_config == expected_config
+
+    # check wrong python version raises
+    with pytest.raises(click.UsageError):
+        validate_config({"python_version": "3.9"})
+
+    # check missing dependencies key raises
+    with pytest.raises(click.UsageError):
+        validate_config(
+            {"python_version": "3.9", "graphs": {"agent": "./agent.py:graph"}}
+        )
+
+    # check missing graphs key raises
+    with pytest.raises(click.UsageError):
+        validate_config({"python_version": "3.9", "dependencies": ["."]})
+
+    with pytest.raises(click.UsageError) as exc_info:
+        validate_config({"python_version": "3.11.0"})
+    assert "Invalid Python version format" in str(exc_info.value)
+
+    with pytest.raises(click.UsageError) as exc_info:
+        validate_config({"python_version": "3"})
+    assert "Invalid Python version format" in str(exc_info.value)
+
+    with pytest.raises(click.UsageError) as exc_info:
+        validate_config({"python_version": "abc.def"})
+    assert "Invalid Python version format" in str(exc_info.value)
+
+    with pytest.raises(click.UsageError) as exc_info:
+        validate_config({"python_version": "3.10"})
+    assert "Minimum required version" in str(exc_info.value)
+
+    config = validate_config(
+        {
+            "python_version": "3.11-bullseye",
+            "dependencies": ["."],
+            "graphs": {"agent": "./agent.py:graph"},
+        }
+    )
+    assert config["python_version"] == "3.11-bullseye"
+
+    config = validate_config(
+        {
+            "python_version": "3.12-slim",
+            "dependencies": ["."],
+            "graphs": {"agent": "./agent.py:graph"},
+        }
+    )
+    assert config["python_version"] == "3.12-slim"
+    with pytest.raises(
+        ValueError,
+        match="Invalid http.app format",
+    ):
+        validate_config(
+            {
+                "python_version": "3.12",
+                "dependencies": ["."],
+                "graphs": {"agent": "./agent.py:graph"},
+                "http": {"app": "../../examples/my_app.py"},
+            }
+        )

@@ -1,0 +1,3 @@
+class State2(TypedDict):
+    foo: str
+    bar: int

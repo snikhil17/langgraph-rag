@@ -1,0 +1,54 @@
+"""Test that config json schema is generated properly."""
+def test_config_json_schema() -> None:
+
+    chain = Channel.subscribe_to("input") | Channel.write_to("output")
+
+    @dataclass
+    class Foo:
+        x: int
+        y: str = field(default="foo")
+
+    app = Pregel(
+        nodes={
+            "one": chain,
+        },
+        channels={
+            "ephemeral": EphemeralValue(Any),
+            "input": LastValue(int),
+            "output": LastValue(int),
+        },
+        input_channels=["input", "ephemeral"],
+        output_channels="output",
+        config_type=Foo,
+    )
+
+    assert app.get_config_jsonschema() == {
+        "$defs": {
+            "Foo": {
+                "properties": {
+                    "x": {
+                        "title": "X",
+                        "type": "integer",
+                    },
+                    "y": {
+                        "default": "foo",
+                        "title": "Y",
+                        "type": "string",
+                    },
+                },
+                "required": [
+                    "x",
+                ],
+                "title": "Foo",
+                "type": "object",
+            },
+        },
+        "properties": {
+            "configurable": {
+                "$ref": "#/$defs/Foo",
+                "default": None,
+            },
+        },
+        "title": "LangGraphConfig",
+        "type": "object",
+    }

@@ -1,0 +1,8 @@
+"""Default error formatting function."""
+def _default_format_error(
+    error: BaseException,
+    call: ToolCall,
+    schema: Union[Type[BaseModel], Type[BaseModelV1]],
+) -> str:
+
+    return f"{repr(error)}\n\nRespond after fixing all validation errors."

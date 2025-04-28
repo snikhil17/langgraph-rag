@@ -1,0 +1,19 @@
+"""Parameters for updating a thread or run.
+
+Called for updates to a thread, thread version, or run
+cancellation."""
+class ThreadsUpdate(typing.TypedDict, total=False):
+    """Parameters for updating a thread or run.
+
+    Called for updates to a thread, thread version, or run
+    cancellation.
+    """
+
+    thread_id: UUID
+    """Unique identifier for the thread."""
+
+    metadata: MetadataInput
+    """typing.Optional metadata to update."""
+
+    action: typing.Optional[typing.Literal["interrupt", "rollback"]]
+    """typing.Optional action to perform on the thread."""

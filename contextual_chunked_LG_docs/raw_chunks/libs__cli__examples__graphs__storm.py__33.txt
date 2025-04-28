@@ -1,0 +1,2 @@
+def format_docs(docs):
+    return "\n\n".join(format_doc(doc) for doc in docs)

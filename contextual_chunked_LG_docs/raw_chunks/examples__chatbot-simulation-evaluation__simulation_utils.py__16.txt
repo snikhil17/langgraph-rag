@@ -1,0 +1,12 @@
+def _prepare_example(inputs: dict[str, Any], input_key: Optional[str] = None):
+    if input_key is not None:
+        if input_key not in inputs:
+            raise ValueError(
+                f"Dataset's example input must contain the provided input key: '{input_key}'.\nFound: {list(inputs.keys())}"
+            )
+        messages = [HumanMessage(content=inputs[input_key])]
+        return {
+            "inputs": {k: v for k, v in inputs.items() if k != input_key},
+            "messages": messages,
+        }
+    return {"inputs": inputs, "messages": []}

@@ -1,0 +1,33 @@
+class _ThreadsOn(
+    _ResourceOn[
+        types.ThreadsCreate,
+        types.ThreadsRead,
+        types.ThreadsUpdate,
+        types.ThreadsDelete,
+        types.ThreadsSearch,
+    ]
+):
+    value = typing.Union[
+        type[types.ThreadsCreate],
+        type[types.ThreadsRead],
+        type[types.ThreadsUpdate],
+        type[types.ThreadsDelete],
+        type[types.ThreadsSearch],
+        type[types.RunsCreate],
+    ]
+    Create = types.ThreadsCreate
+    Read = types.ThreadsRead
+    Update = types.ThreadsUpdate
+    Delete = types.ThreadsDelete
+    Search = types.ThreadsSearch
+    CreateRun = types.RunsCreate
+
+    def __init__(
+        self,
+        auth: Auth,
+        resource: typing.Literal["threads", "crons", "assistants"],
+    ) -> None:
+        super().__init__(auth, resource)
+        self.create_run: _ResourceActionOn[types.RunsCreate] = _ResourceActionOn(
+            auth, resource, "create_run", self.CreateRun
+        )

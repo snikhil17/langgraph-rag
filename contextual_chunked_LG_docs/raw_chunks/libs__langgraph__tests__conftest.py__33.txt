@@ -1,0 +1,17 @@
+def checkpointer_postgres_pool():
+    database = f"test_{uuid4().hex[:16]}"
+    # create unique db
+    with Connection.connect(DEFAULT_POSTGRES_URI, autocommit=True) as conn:
+        conn.execute(f"CREATE DATABASE {database}")
+    try:
+        # yield checkpointer
+        with ConnectionPool(
+            DEFAULT_POSTGRES_URI + database, max_size=10, kwargs={"autocommit": True}
+        ) as pool:
+            checkpointer = PostgresSaver(pool)
+            checkpointer.setup()
+            yield checkpointer
+    finally:
+        # drop unique db
+        with Connection.connect(DEFAULT_POSTGRES_URI, autocommit=True) as conn:
+            conn.execute(f"DROP DATABASE {database}")

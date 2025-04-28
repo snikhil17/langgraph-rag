@@ -1,0 +1,50 @@
+def test_batch_order(store: PostgresStore) -> None:
+    # Setup test data
+    store.put(("test", "foo"), "key1", {"data": "value1"})
+    store.put(("test", "bar"), "key2", {"data": "value2"})
+
+    ops = [
+        GetOp(namespace=("test", "foo"), key="key1"),
+        PutOp(namespace=("test", "bar"), key="key2", value={"data": "value2"}),
+        SearchOp(
+            namespace_prefix=("test",), filter={"data": "value1"}, limit=10, offset=0
+        ),
+        ListNamespacesOp(match_conditions=None, max_depth=None, limit=10, offset=0),
+        GetOp(namespace=("test",), key="key3"),
+    ]
+
+    results = store.batch(ops)
+    assert len(results) == 5
+    assert isinstance(results[0], Item)
+    assert isinstance(results[0].value, dict)
+    assert results[0].value == {"data": "value1"}
+    assert results[0].key == "key1"
+    assert results[1] is None  # Put operation returns None
+    assert isinstance(results[2], list)
+    assert len(results[2]) == 1
+    assert isinstance(results[3], list)
+    assert len(results[3]) > 0  # Should contain at least our test namespaces
+    assert results[4] is None  # Non-existent key returns None
+
+    # Test reordered operations
+    ops_reordered = [
+        SearchOp(namespace_prefix=("test",), filter=None, limit=5, offset=0),
+        GetOp(namespace=("test", "bar"), key="key2"),
+        ListNamespacesOp(match_conditions=None, max_depth=None, limit=5, offset=0),
+        PutOp(namespace=("test",), key="key3", value={"data": "value3"}),
+        GetOp(namespace=("test", "foo"), key="key1"),
+    ]
+
+    results_reordered = store.batch(ops_reordered)
+    assert len(results_reordered) == 5
+    assert isinstance(results_reordered[0], list)
+    assert len(results_reordered[0]) >= 2  # Should find at least our two test items
+    assert isinstance(results_reordered[1], Item)
+    assert results_reordered[1].value == {"data": "value2"}
+    assert results_reordered[1].key == "key2"
+    assert isinstance(results_reordered[2], list)
+    assert len(results_reordered[2]) > 0
+    assert results_reordered[3] is None  # Put operation returns None
+    assert isinstance(results_reordered[4], Item)
+    assert results_reordered[4].value == {"data": "value1"}
+    assert results_reordered[4].key == "key1"

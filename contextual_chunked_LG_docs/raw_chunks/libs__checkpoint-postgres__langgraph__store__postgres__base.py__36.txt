@@ -1,0 +1,8 @@
+"""Convert namespace tuple to text string."""
+def _namespace_to_text(
+    namespace: tuple[str, ...], handle_wildcards: bool = False
+) -> str:
+
+    if handle_wildcards:
+        namespace = tuple("%" if val == "*" else val for val in namespace)
+    return ".".join(namespace)

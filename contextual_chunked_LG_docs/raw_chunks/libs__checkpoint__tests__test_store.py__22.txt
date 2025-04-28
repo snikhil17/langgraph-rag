@@ -1,0 +1,9 @@
+"""Test store initialization with embedding config."""
+def test_vector_store_initialization(fake_embeddings: CharacterEmbeddings) -> None:
+
+    store = InMemoryStore(
+        index={"dims": fake_embeddings.dims, "embed": fake_embeddings}
+    )
+    assert store.index_config is not None
+    assert store.index_config["dims"] == fake_embeddings.dims
+    assert store.index_config["embed"] == fake_embeddings

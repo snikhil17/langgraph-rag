@@ -1,0 +1,13 @@
+"""Test that an invalid template ID passed via CLI results in a graceful error."""
+def test_invalid_template_id() -> None:
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["new", "dummy_path", "--template", "invalid-template-id"]
+    )
+
+    # Verify the command failed and proper message is displayed
+    assert result.exit_code != 0, "Expected non-zero exit code for invalid template."
+    assert (
+        "Template 'invalid-template-id' not found" in result.output
+    ), "Expected error message in output."

@@ -1,0 +1,4 @@
+class MessageToExecutor(TypedDict):
+    config: RunnableConfig
+    task: ExecutorTask
+    finally_send: Optional[Sequence[Sendable]]

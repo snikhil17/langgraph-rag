@@ -1,0 +1,20 @@
+class Call:
+    __slots__ = ("func", "input", "retry", "callbacks")
+
+    func: Callable
+    input: Any
+    retry: Optional[Sequence[RetryPolicy]]
+    callbacks: Callbacks
+
+    def __init__(
+        self,
+        func: Callable,
+        input: Any,
+        *,
+        retry: Optional[Sequence[RetryPolicy]],
+        callbacks: Callbacks,
+    ) -> None:
+        self.func = func
+        self.input = input
+        self.retry = retry
+        self.callbacks = callbacks

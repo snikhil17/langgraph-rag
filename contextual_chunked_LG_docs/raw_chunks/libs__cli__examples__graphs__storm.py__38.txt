@@ -1,0 +1,4 @@
+class InterviewState(TypedDict):
+    messages: Annotated[List[AnyMessage], add_messages]
+    references: Annotated[Optional[dict], update_references]
+    editor: Annotated[Optional[Editor], update_editor]

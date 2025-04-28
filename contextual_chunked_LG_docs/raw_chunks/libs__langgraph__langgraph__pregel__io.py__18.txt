@@ -1,0 +1,6 @@
+class AddableUpdatesDict(AddableDict):
+    def __add__(self, other: dict[str, Any]) -> "AddableUpdatesDict":
+        return [self, other]
+
+    def __radd__(self, other: dict[str, Any]) -> "AddableUpdatesDict":
+        raise TypeError("AddableUpdatesDict does not support right-side addition")

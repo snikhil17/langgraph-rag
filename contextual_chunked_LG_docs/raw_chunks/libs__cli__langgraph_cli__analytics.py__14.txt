@@ -1,0 +1,20 @@
+def log_command(func):
+    @functools.wraps(func)
+    def decorator(*args, **kwargs):
+        if os.getenv("LANGGRAPH_CLI_NO_ANALYTICS") == "1":
+            return func(*args, **kwargs)
+
+        data = {
+            "os": platform.system(),
+            "os_version": platform.version(),
+            "python_version": platform.python_version(),
+            "cli_version": __version__,
+            "cli_command": func.__name__,
+            "params": get_anonymized_params(kwargs),
+        }
+
+        background_thread = threading.Thread(target=log_data, args=(data,))
+        background_thread.start()
+        return func(*args, **kwargs)
+
+    return decorator

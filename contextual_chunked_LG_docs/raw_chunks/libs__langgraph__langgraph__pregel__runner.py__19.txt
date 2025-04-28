@@ -1,0 +1,50 @@
+class FuturesDict(Generic[F, E], dict[F, Optional[PregelExecutableTask]]):
+    event: E
+    callback: weakref.ref[
+        Callable[[PregelExecutableTask, Optional[BaseException]], None]
+    ]
+    counter: int
+    done: set[F]
+    lock: threading.Lock
+
+    def __init__(
+        self,
+        event: E,
+        callback: weakref.ref[
+            Callable[[PregelExecutableTask, Optional[BaseException]], None]
+        ],
+        future_type: type[F],
+        # used for generic typing, newer py supports FutureDict[...](...)
+    ) -> None:
+        super().__init__()
+        self.lock = threading.Lock()
+        self.event = event
+        self.callback = callback
+        self.counter = 0
+        self.done: set[F] = set()
+
+    def __setitem__(
+        self,
+        key: F,
+        value: Optional[PregelExecutableTask],
+    ) -> None:
+        super().__setitem__(key, value)  # type: ignore[index]
+        if value is not None:
+            with self.lock:
+                self.event.clear()
+                self.counter += 1
+            key.add_done_callback(partial(self.on_done, value))
+
+    def on_done(
+        self,
+        task: PregelExecutableTask,
+        fut: F,
+    ) -> None:
+        try:
+            self.callback()(task, _exception(fut))  # type: ignore[misc]
+        finally:
+            with self.lock:
+                self.done.add(fut)
+                self.counter -= 1
+                if self.counter == 0 or _should_stop_others(self.done):
+                    self.event.set()

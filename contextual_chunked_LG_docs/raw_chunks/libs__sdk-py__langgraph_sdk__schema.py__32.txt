@@ -1,0 +1,12 @@
+"""Represents an interruption in the execution flow."""
+class Interrupt(TypedDict, total=False):
+
+
+    value: Any
+    """The value associated with the interrupt."""
+    when: Literal["during"]
+    """When the interrupt occurred."""
+    resumable: bool
+    """Whether the interrupt can be resumed."""
+    ns: Optional[list[str]]
+    """Optional namespace for the interrupt."""

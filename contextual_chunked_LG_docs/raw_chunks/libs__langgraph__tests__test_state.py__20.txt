@@ -1,0 +1,30 @@
+def test__get_node_name() -> None:
+    # default runnable name
+    assert _get_node_name(RunnableLambda(func=lambda x: x)) == "RunnableLambda"
+    # custom runnable name
+    assert (
+        _get_node_name(RunnableLambda(name="my_runnable", func=lambda x: x))
+        == "my_runnable"
+    )
+
+    # lambda
+    assert _get_node_name(lambda x: x) == "<lambda>"
+
+    # regular function
+    def func(state):
+        return
+
+    assert _get_node_name(func) == "func"
+
+    class MyClass:
+        def __call__(self, state):
+            return
+
+        def class_method(self, state):
+            return
+
+    # callable class
+    assert _get_node_name(MyClass()) == "MyClass"
+
+    # class method
+    assert _get_node_name(MyClass().class_method) == "class_method"

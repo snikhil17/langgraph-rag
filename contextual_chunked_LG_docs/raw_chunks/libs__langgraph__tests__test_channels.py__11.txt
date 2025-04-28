@@ -1,0 +1,22 @@
+def test_topic() -> None:
+    channel = Topic(str).from_checkpoint(MISSING)
+    assert channel.ValueType == Sequence[str]
+    assert channel.UpdateType is Union[str, list[str]]
+
+    assert channel.update(["a", "b"])
+    assert channel.get() == ["a", "b"]
+    assert channel.update([["c", "d"], "d"])
+    assert channel.get() == ["c", "d", "d"]
+    assert channel.update([])
+    with pytest.raises(EmptyChannelError):
+        channel.get()
+    assert not channel.update([]), "channel already empty"
+    assert channel.update(["e"])
+    assert channel.get() == ["e"]
+    checkpoint = channel.checkpoint()
+    channel = Topic(str).from_checkpoint(checkpoint)
+    assert channel.get() == ["e"]
+    channel_copy = Topic(str).from_checkpoint(checkpoint)
+    channel_copy.update(["f"])
+    assert channel_copy.get() == ["f"]
+    assert channel.get() == ["e"]

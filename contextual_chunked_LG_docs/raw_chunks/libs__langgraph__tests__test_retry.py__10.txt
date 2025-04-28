@@ -1,0 +1,7 @@
+"""Test retry with an invalid retry_on type."""
+def test_should_retry_on_invalid_type():
+
+    policy = RetryPolicy(retry_on=123)  # type: ignore
+
+    with pytest.raises(TypeError, match="retry_on must be an Exception class"):
+        _should_retry_on(policy, ValueError("test error"))

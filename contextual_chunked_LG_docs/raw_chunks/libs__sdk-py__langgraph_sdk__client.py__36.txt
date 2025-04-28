@@ -1,0 +1,241 @@
+"""Synchronous client for managing cron jobs in LangGraph.
+
+This class provides methods to create and manage scheduled tasks (cron jobs) for automated graph executions.
+
+Example:
+
+    client = get_sync_client()
+    cron_job = client.crons.create_for_thread(thread_id="thread_123", assistant_id="asst_456", schedule="0 * * * *")"""
+class SyncCronClient:
+    """Synchronous client for managing cron jobs in LangGraph.
+
+    This class provides methods to create and manage scheduled tasks (cron jobs) for automated graph executions.
+
+    Example:
+
+        client = get_sync_client()
+        cron_job = client.crons.create_for_thread(thread_id="thread_123", assistant_id="asst_456", schedule="0 * * * *")
+    """
+
+    def __init__(self, http_client: SyncHttpClient) -> None:
+        self.http = http_client
+
+    def create_for_thread(
+        self,
+        thread_id: str,
+        assistant_id: str,
+        *,
+        schedule: str,
+        input: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+        config: Optional[Config] = None,
+        interrupt_before: Optional[Union[All, list[str]]] = None,
+        interrupt_after: Optional[Union[All, list[str]]] = None,
+        webhook: Optional[str] = None,
+        multitask_strategy: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Run:
+        """Create a cron job for a thread.
+
+        Args:
+            thread_id: the thread ID to run the cron job on.
+            assistant_id: The assistant ID or graph name to use for the cron job.
+                If using graph name, will default to first assistant created from that graph.
+            schedule: The cron schedule to execute this job on.
+            input: The input to the graph.
+            metadata: Metadata to assign to the cron job runs.
+            config: The configuration for the assistant.
+            interrupt_before: Nodes to interrupt immediately before they get executed.
+
+            interrupt_after: Nodes to Nodes to interrupt immediately after they get executed.
+
+            webhook: Webhook to call after LangGraph API call is done.
+            multitask_strategy: Multitask strategy to use.
+                Must be one of 'reject', 'interrupt', 'rollback', or 'enqueue'.
+            headers: Optional custom headers to include with the request.
+
+        Returns:
+            Run: The cron run.
+
+        Example Usage:
+
+            cron_run = client.crons.create_for_thread(
+                thread_id="my-thread-id",
+                assistant_id="agent",
+                schedule="27 15 * * *",
+                input={"messages": [{"role": "user", "content": "hello!"}]},
+                metadata={"name":"my_run"},
+                config={"configurable": {"model_name": "openai"}},
+                interrupt_before=["node_to_stop_before_1","node_to_stop_before_2"],
+                interrupt_after=["node_to_stop_after_1","node_to_stop_after_2"],
+                webhook="https://my.fake.webhook.com",
+                multitask_strategy="interrupt"
+            )
+
+        """  # noqa: E501
+        payload = {
+            "schedule": schedule,
+            "input": input,
+            "config": config,
+            "metadata": metadata,
+            "assistant_id": assistant_id,
+            "interrupt_before": interrupt_before,
+            "interrupt_after": interrupt_after,
+            "webhook": webhook,
+        }
+        if multitask_strategy:
+            payload["multitask_strategy"] = multitask_strategy
+        payload = {k: v for k, v in payload.items() if v is not None}
+        return self.http.post(
+            f"/threads/{thread_id}/runs/crons", json=payload, headers=headers
+        )
+
+    def create(
+        self,
+        assistant_id: str,
+        *,
+        schedule: str,
+        input: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+        config: Optional[Config] = None,
+        interrupt_before: Optional[Union[All, list[str]]] = None,
+        interrupt_after: Optional[Union[All, list[str]]] = None,
+        webhook: Optional[str] = None,
+        multitask_strategy: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Run:
+        """Create a cron run.
+
+        Args:
+            assistant_id: The assistant ID or graph name to use for the cron job.
+                If using graph name, will default to first assistant created from that graph.
+            schedule: The cron schedule to execute this job on.
+            input: The input to the graph.
+            metadata: Metadata to assign to the cron job runs.
+            config: The configuration for the assistant.
+            interrupt_before: Nodes to interrupt immediately before they get executed.
+            interrupt_after: Nodes to Nodes to interrupt immediately after they get executed.
+            webhook: Webhook to call after LangGraph API call is done.
+            multitask_strategy: Multitask strategy to use.
+                Must be one of 'reject', 'interrupt', 'rollback', or 'enqueue'.
+            headers: Optional custom headers to include with the request.
+
+        Returns:
+            Run: The cron run.
+
+        Example Usage:
+
+            cron_run = client.crons.create(
+                assistant_id="agent",
+                schedule="27 15 * * *",
+                input={"messages": [{"role": "user", "content": "hello!"}]},
+                metadata={"name":"my_run"},
+                config={"configurable": {"model_name": "openai"}},
+                interrupt_before=["node_to_stop_before_1","node_to_stop_before_2"],
+                interrupt_after=["node_to_stop_after_1","node_to_stop_after_2"],
+                webhook="https://my.fake.webhook.com",
+                multitask_strategy="interrupt"
+            )
+
+        """  # noqa: E501
+        payload = {
+            "schedule": schedule,
+            "input": input,
+            "config": config,
+            "metadata": metadata,
+            "assistant_id": assistant_id,
+            "interrupt_before": interrupt_before,
+            "interrupt_after": interrupt_after,
+            "webhook": webhook,
+        }
+        if multitask_strategy:
+            payload["multitask_strategy"] = multitask_strategy
+        payload = {k: v for k, v in payload.items() if v is not None}
+        return self.http.post("/runs/crons", json=payload, headers=headers)
+
+    def delete(
+        self,
+        cron_id: str,
+        *,
+        headers: Optional[dict[str, str]] = None,
+    ) -> None:
+        """Delete a cron.
+
+        Args:
+            cron_id: The cron ID to delete.
+            headers: Optional custom headers to include with the request.
+
+        Returns:
+            None
+
+        Example Usage:
+
+            client.crons.delete(
+                cron_id="cron_to_delete"
+            )
+
+        """  # noqa: E501
+        self.http.delete(f"/runs/crons/{cron_id}", headers=headers)
+
+    def search(
+        self,
+        *,
+        assistant_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        limit: int = 10,
+        offset: int = 0,
+        headers: Optional[dict[str, str]] = None,
+    ) -> list[Cron]:
+        """Get a list of cron jobs.
+
+        Args:
+            assistant_id: The assistant ID or graph name to search for.
+            thread_id: the thread ID to search for.
+            limit: The maximum number of results to return.
+            offset: The number of results to skip.
+            headers: Optional custom headers to include with the request.
+
+        Returns:
+            list[Cron]: The list of cron jobs returned by the search,
+
+        Example Usage:
+
+            cron_jobs = client.crons.search(
+                assistant_id="my_assistant_id",
+                thread_id="my_thread_id",
+                limit=5,
+                offset=5,
+            )
+            print(cron_jobs)
+
+            ----------------------------------------------------------
+
+            [
+                {
+                    'cron_id': '1ef3cefa-4c09-6926-96d0-3dc97fd5e39b',
+                    'assistant_id': 'my_assistant_id',
+                    'thread_id': 'my_thread_id',
+                    'user_id': None,
+                    'payload':
+                        {
+                            'input': {'start_time': ''},
+                            'schedule': '4 * * * *',
+                            'assistant_id': 'my_assistant_id'
+                        },
+                    'schedule': '4 * * * *',
+                    'next_run_date': '2024-07-25T17:04:00+00:00',
+                    'end_time': None,
+                    'created_at': '2024-07-08T06:02:23.073257+00:00',
+                    'updated_at': '2024-07-08T06:02:23.073257+00:00'
+                }
+            ]
+
+        """  # noqa: E501
+        payload = {
+            "assistant_id": assistant_id,
+            "thread_id": thread_id,
+            "limit": limit,
+            "offset": offset,
+        }
+        payload = {k: v for k, v in payload.items() if v is not None}
+        return self.http.post("/runs/crons/search", json=payload, headers=headers)

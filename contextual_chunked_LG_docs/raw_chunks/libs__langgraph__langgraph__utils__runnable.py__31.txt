@@ -1,0 +1,4 @@
+class _RunnableWithWriterStore(Protocol[Input, Output]):
+    def __call__(
+        self, state: Input, *, writer: StreamWriter, store: BaseStore
+    ) -> Output: ...

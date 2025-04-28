@@ -1,0 +1,3 @@
+def task(
+    __func_or_none__: Union[Callable[P, Awaitable[T]], Callable[P, T]],
+) -> Callable[P, SyncAsyncFuture[T]]: ...

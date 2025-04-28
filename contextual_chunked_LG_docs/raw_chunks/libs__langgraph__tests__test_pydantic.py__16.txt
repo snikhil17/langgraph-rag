@@ -1,0 +1,27 @@
+def test_pydantic_v1_state_root_validator():
+    from pydantic.v1 import BaseModel, root_validator
+
+    class State(BaseModel):
+        name: str
+        text: str = ""
+        only_root: int = 13
+
+        @root_validator(pre=True)
+        @classmethod
+        def validate(cls, values: dict):
+            values["name"] = "Validated " + values["name"]
+            return values | {"only_root": 396}
+
+    input_state = {"name": "John"}
+
+    def process_node(state: State):
+        assert State(**input_state) == state
+        return {"text": "Hello, " + state.name + "!"}
+
+    builder = StateGraph(state_schema=State)
+    builder.add_node("process", process_node)
+    builder.add_edge(START, "process")
+    builder.add_edge("process", END)
+    g = builder.compile()
+    res = g.invoke(input_state)
+    assert res["text"] == "Hello, Validated John!"

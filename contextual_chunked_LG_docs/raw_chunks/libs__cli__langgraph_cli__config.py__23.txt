@@ -1,0 +1,12 @@
+"""Parse a Node.js version string into a major version number."""
+def _parse_node_version(version_str: str) -> int:
+
+    try:
+        if "." in version_str:
+            raise ValueError("Node.js version must be major version only")
+        return int(version_str)
+    except ValueError:
+        raise click.UsageError(
+            f"Invalid Node.js version format: {version_str}. "
+            "Use major version only (e.g., '20')."
+        ) from None

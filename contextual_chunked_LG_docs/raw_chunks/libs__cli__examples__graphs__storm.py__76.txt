@@ -1,0 +1,4 @@
+def format_conversation(interview_state):
+    messages = interview_state["messages"]
+    convo = "\n".join(f"{m.name}: {m.content}" for m in messages)
+    return f'Conversation with {interview_state["editor"].name}\n\n' + convo

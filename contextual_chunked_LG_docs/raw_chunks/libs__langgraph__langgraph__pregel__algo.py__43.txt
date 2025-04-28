@@ -1,0 +1,18 @@
+def _triggers(
+    channels: Mapping[str, BaseChannel],
+    versions: ChannelVersions,
+    seen: Optional[ChannelVersions],
+    null_version: V,
+    proc: PregelNode,
+) -> Sequence[str]:
+    if seen is None:
+        for chan in proc.triggers:
+            if channels[chan].is_available():
+                return (chan,)
+    else:
+        for chan in proc.triggers:
+            if channels[chan].is_available() and versions.get(  # type: ignore[operator]
+                chan, null_version
+            ) > seen.get(chan, null_version):
+                return (chan,)
+    return EMPTY_SEQ

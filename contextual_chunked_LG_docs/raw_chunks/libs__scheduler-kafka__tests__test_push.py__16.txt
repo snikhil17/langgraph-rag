@@ -1,0 +1,4 @@
+def _convert_path(
+    path: tuple[Union[str, int, tuple], ...],
+) -> list[Union[str, int, list]]:
+    return list(_convert_path(p) if isinstance(p, tuple) else p for p in path)

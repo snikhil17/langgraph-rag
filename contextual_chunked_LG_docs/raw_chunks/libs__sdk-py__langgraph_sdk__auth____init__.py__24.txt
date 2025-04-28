@@ -1,0 +1,20 @@
+def _register_handler(
+    auth: Auth,
+    resource: typing.Optional[str],
+    action: typing.Optional[str],
+    fn: types.Handler,
+) -> types.Handler:
+    _validate_handler(fn)
+    resource = resource or "*"
+    action = action or "*"
+    if resource == "*" and action == "*":
+        if auth._global_handlers:
+            raise ValueError("Global handler already set.")
+        auth._global_handlers.append(fn)
+    else:
+        r = resource if resource is not None else "*"
+        a = action if action is not None else "*"
+        if (r, a) in auth._handlers:
+            raise ValueError(f"types.Handler already set for {r}, {a}.")
+        auth._handlers[(r, a)] = [fn]
+    return fn

@@ -1,0 +1,5 @@
+"""Exception raised when an error occurs in the remote graph."""
+class RemoteException(Exception):
+
+
+    pass

@@ -1,0 +1,78 @@
+"""Operation to list and filter namespaces in the store.
+
+This operation allows exploring the organization of data, finding specific
+collections, and navigating the namespace hierarchy.
+
+???+ example "Examples"
+
+    List all namespaces under the "documents" path:
+    ```python
+    ListNamespacesOp(
+        match_conditions=(MatchCondition(match_type="prefix", path=("documents",)),),
+        max_depth=2
+    )
+    ```
+
+    List all namespaces that end with "v1":
+    ```python
+    ListNamespacesOp(
+        match_conditions=(MatchCondition(match_type="suffix", path=("v1",)),),
+        limit=50
+    )
+    ```"""
+class ListNamespacesOp(NamedTuple):
+    """Operation to list and filter namespaces in the store.
+
+    This operation allows exploring the organization of data, finding specific
+    collections, and navigating the namespace hierarchy.
+
+    ???+ example "Examples"
+
+        List all namespaces under the "documents" path:
+        ```python
+        ListNamespacesOp(
+            match_conditions=(MatchCondition(match_type="prefix", path=("documents",)),),
+            max_depth=2
+        )
+        ```
+
+        List all namespaces that end with "v1":
+        ```python
+        ListNamespacesOp(
+            match_conditions=(MatchCondition(match_type="suffix", path=("v1",)),),
+            limit=50
+        )
+        ```
+
+    """
+
+    match_conditions: Optional[tuple[MatchCondition, ...]] = None
+    """Optional conditions for filtering namespaces.
+
+    ???+ example "Examples"
+        All user namespaces:
+        ```python
+        (MatchCondition(match_type="prefix", path=("users",)),)
+        ```
+
+        All namespaces that start with "docs" and end with "draft":
+        ```python
+        (
+            MatchCondition(match_type="prefix", path=("docs",)),
+            MatchCondition(match_type="suffix", path=("draft",))
+        ) 
+        ```
+    """
+
+    max_depth: Optional[int] = None
+    """Maximum depth of namespace hierarchy to return.
+
+    Note:
+        Namespaces deeper than this level will be truncated.
+    """
+
+    limit: int = 100
+    """Maximum number of namespaces to return."""
+
+    offset: int = 0
+    """Number of namespaces to skip for pagination."""

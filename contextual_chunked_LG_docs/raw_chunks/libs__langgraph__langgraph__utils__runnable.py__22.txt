@@ -1,0 +1,18 @@
+"""Set the child Runnable config + tracing context.
+
+Args:
+    config (RunnableConfig): The config to set."""
+def set_config_context(
+    config: RunnableConfig, run: Any = None
+) -> Generator[Context, None, None]:
+    """Set the child Runnable config + tracing context.
+
+    Args:
+        config (RunnableConfig): The config to set.
+    """
+    ctx = copy_context()
+    config_token = ctx.run(_set_config_context, config, run)
+    try:
+        yield ctx
+    finally:
+        ctx.run(_unset_config_context, config_token, run)

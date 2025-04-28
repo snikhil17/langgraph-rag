@@ -1,0 +1,16 @@
+def on_files(files: Files, **kwargs: Dict[str, Any]):
+    if DISABLED:
+        return files
+    new_files = Files([])
+    for file in files:
+        if file.src_path.endswith(".ipynb"):
+            new_file = NotebookFile(
+                path=file.src_path,
+                src_dir=file.src_dir,
+                dest_dir=file.dest_dir,
+                use_directory_urls=file.use_directory_urls,
+            )
+            new_files.append(new_file)
+        else:
+            new_files.append(file)
+    return new_files

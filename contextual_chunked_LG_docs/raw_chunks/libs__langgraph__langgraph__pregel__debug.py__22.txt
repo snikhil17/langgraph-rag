@@ -1,0 +1,3 @@
+class DebugOutputTaskResult(DebugOutputBase):
+    type: Literal["task_result"]
+    payload: TaskResultPayload

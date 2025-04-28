@@ -1,0 +1,24 @@
+def test_remove_message_from_node():
+    from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
+
+    workflow = MessageGraph()
+    workflow.add_node(
+        "chatbot",
+        lambda state: [
+            AIMessage(
+                content="Hello!",
+            ),
+            AIMessage(
+                content="How can I help you?",
+            ),
+        ],
+    )
+    workflow.add_node("delete_messages", lambda state: [RemoveMessage(id=state[-2].id)])
+    workflow.set_entry_point("chatbot")
+    workflow.add_edge("chatbot", "delete_messages")
+    workflow.add_edge("delete_messages", END)
+
+    app = workflow.compile()
+    output = app.invoke([HumanMessage(content="Hi")])
+    assert len(output) == 2
+    assert output[-1].content == "How can I help you?"

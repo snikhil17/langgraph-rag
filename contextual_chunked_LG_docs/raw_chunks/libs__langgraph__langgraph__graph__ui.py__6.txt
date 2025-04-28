@@ -1,0 +1,30 @@
+"""A message type for UI updates in LangGraph.
+
+This TypedDict represents a UI message that can be sent to update the UI state.
+It contains information about the UI component to render and its properties.
+
+Attributes:
+    type: Literal type indicating this is a UI message.
+    id: Unique identifier for the UI message.
+    name: Name of the UI component to render.
+    props: Properties to pass to the UI component.
+    metadata: Additional metadata about the UI message."""
+class UIMessage(TypedDict):
+    """A message type for UI updates in LangGraph.
+
+    This TypedDict represents a UI message that can be sent to update the UI state.
+    It contains information about the UI component to render and its properties.
+
+    Attributes:
+        type: Literal type indicating this is a UI message.
+        id: Unique identifier for the UI message.
+        name: Name of the UI component to render.
+        props: Properties to pass to the UI component.
+        metadata: Additional metadata about the UI message.
+    """
+
+    type: Literal["ui"]
+    id: str
+    name: str
+    props: dict[str, Any]
+    metadata: dict[str, Any]

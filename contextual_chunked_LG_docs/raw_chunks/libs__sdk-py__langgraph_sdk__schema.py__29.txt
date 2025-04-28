@@ -1,0 +1,20 @@
+"""Base model for an assistant."""
+class AssistantBase(TypedDict):
+
+
+    assistant_id: str
+    """The ID of the assistant."""
+    graph_id: str
+    """The ID of the graph."""
+    config: Config
+    """The assistant config."""
+    created_at: datetime
+    """The time the assistant was created."""
+    metadata: Json
+    """The assistant metadata."""
+    version: int
+    """The version of the assistant"""
+    name: str
+    """The name of the assistant"""
+    description: Optional[str]
+    """The description of the assistant"""

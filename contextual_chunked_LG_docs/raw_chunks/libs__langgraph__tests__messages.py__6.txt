@@ -1,0 +1,6 @@
+"""Create ai message with an any id field."""
+def _AnyIdAIMessage(**kwargs: Any) -> AIMessage:
+
+    message = AIMessage(**kwargs)
+    message.id = AnyStr()
+    return message

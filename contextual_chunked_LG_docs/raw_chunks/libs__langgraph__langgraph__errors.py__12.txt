@@ -1,0 +1,6 @@
+"""Raised when a graph is delegated (for distributed mode)."""
+class GraphDelegate(GraphBubbleUp):
+
+
+    def __init__(self, *args: dict[str, Any]) -> None:
+        super().__init__(*args)

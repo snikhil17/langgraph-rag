@@ -1,0 +1,9 @@
+"""Operation to retrieve a specific item by its namespace and key."""
+class StoreGet(typing.TypedDict):
+
+
+    namespace: tuple[str, ...]
+    """Hierarchical path that uniquely identifies the item's location."""
+
+    key: str
+    """Unique identifier for the item within its specific namespace."""

@@ -1,0 +1,31 @@
+"""Test operation-level field configuration for vector search."""
+def test_scores(
+    fake_embeddings: CharacterEmbeddings,
+    vector_type: str,
+    distance_type: str,
+    query: str,
+) -> None:
+
+    with _create_vector_store(
+        vector_type,
+        distance_type,
+        fake_embeddings,
+        text_fields=["key0"],
+    ) as store:
+        doc = {
+            "key0": "aaa",
+        }
+        store.put(("test",), "doc", doc, index=["key0", "key1"])
+
+        results = store.search((), query=query)
+        vec0 = fake_embeddings.embed_query(doc["key0"])
+        vec1 = fake_embeddings.embed_query(query)
+        if distance_type == "cosine":
+            similarities = _cosine_similarity(vec1, [vec0])
+        elif distance_type == "inner_product":
+            similarities = _inner_product(vec1, [vec0])
+        elif distance_type == "l2":
+            similarities = _neg_l2_distance(vec1, [vec0])
+
+        assert len(results) == 1
+        assert results[0].score == pytest.approx(similarities[0], abs=1e-3)

@@ -1,0 +1,11 @@
+"""Helper for asyncio.ensure_future().
+
+Wraps awaitable (an object with __await__) into a coroutine
+that will later be wrapped in a Task by ensure_future()."""
+def _wrap_awaitable(awaitable: Awaitable[T]) -> Generator[None, None, T]:
+    """Helper for asyncio.ensure_future().
+
+    Wraps awaitable (an object with __await__) into a coroutine
+    that will later be wrapped in a Task by ensure_future().
+    """
+    return (yield from awaitable.__await__())

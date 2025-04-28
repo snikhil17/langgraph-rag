@@ -1,0 +1,73 @@
+class EscapePreprocessor(Preprocessor):
+    def __init__(self, markdown_exec_migration: bool = False, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.markdown_exec_migration = markdown_exec_migration
+
+    def preprocess_cell(self, cell, resources, cell_index):
+        if cell.cell_type == "markdown":
+            if not self.markdown_exec_migration:
+                # Old logic is to convert ipynb links to HTML links
+                cell.source = re.sub(
+                    r"(?<!!)\[([^\]]*)\]\((?![^\)]*//)([^)]*)(?:\.ipynb)?\)",
+                    r'<a href="\2">\1</a>',
+                    cell.source,
+                )
+            else:
+                cell.source = _convert_links_in_markdown(cell.source)
+
+            # Fix image paths in <img> tags
+            cell.source = re.sub(
+                r'<img\s+src="\.?/img/([^"]+)"', r'<img src="../img/\1"', cell.source
+            )
+
+        elif cell.cell_type == "code":
+            # Determine if the cell has bash or cell magic
+            source = cell.source
+            is_exec = not (
+                source.startswith("%") or source.startswith("!") or _uses_input(source)
+            )
+            cell.metadata["exec"] = is_exec
+
+            if self.markdown_exec_migration:
+                # For markdown exec migration we'll re-write cell magic as bash commands
+                if source.startswith("%%"):
+                    cell.source = _rewrite_cell_magic(source)
+                    cell.metadata["language"] = "shell"
+
+                cell.metadata["has_output"] = _has_output(source)
+
+            # Remove noqa comments
+            cell.source = re.sub(r"#\s*noqa.*$", "", cell.source, flags=re.MULTILINE)
+            # escape ``` in code
+            # This is needed because the markdown exporter will wrap code blocks in
+            # triple backticks, which will break the markdown output if the code block
+            # contains triple backticks.
+            cell.source = cell.source.replace("```", r"\`\`\`")
+            # escape ``` in output
+            if "outputs" in cell:
+                filter_out = set()
+                for i, output in enumerate(cell["outputs"]):
+                    if "text" in output:
+                        if not output["text"].strip():
+                            filter_out.add(i)
+                            continue
+
+                        value = output["text"].replace("```", r"\`\`\`")
+                        # handle a funky case w/ references in text
+                        value = re.sub(r"\[(\d+)\](?=\[(\d+)\])", r"[\1]\\", value)
+                        output["text"] = value
+                    elif "data" in output:
+                        for key, value in output["data"].items():
+                            if isinstance(value, str):
+                                value = value.replace("```", r"\`\`\`")
+                                # handle a funky case w/ references in text
+                                output["data"][key] = re.sub(
+                                    r"\[(\d+)\](?=\[(\d+)\])", r"[\1]\\", value
+                                )
+                cell["outputs"] = [
+                    output
+                    for i, output in enumerate(cell["outputs"])
+                    if i not in filter_out
+                ]
+
+        return cell, resources

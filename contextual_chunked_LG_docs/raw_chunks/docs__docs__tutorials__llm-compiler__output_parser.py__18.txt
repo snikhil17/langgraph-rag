@@ -1,0 +1,24 @@
+def instantiate_task(
+    tools: Sequence[BaseTool],
+    idx: int,
+    tool_name: str,
+    args: Union[str, Any],
+    thought: Optional[str] = None,
+) -> Task:
+    if tool_name == "join":
+        tool = "join"
+    else:
+        try:
+            tool = tools[[tool.name for tool in tools].index(tool_name)]
+        except ValueError as e:
+            raise OutputParserException(f"Tool {tool_name} not found.") from e
+    tool_args = _parse_llm_compiler_action_args(args, tool)
+    dependencies = _get_dependencies_from_graph(idx, tool_name, tool_args)
+
+    return Task(
+        idx=idx,
+        tool=tool,
+        args=tool_args,
+        dependencies=dependencies,
+        thought=thought,
+    )

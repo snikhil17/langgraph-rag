@@ -1,0 +1,11 @@
+"""Test retry with a single exception type."""
+def test_should_retry_on_single_exception():
+
+    policy = RetryPolicy(retry_on=ValueError)
+
+    # Should retry on ValueError
+    assert _should_retry_on(policy, ValueError("test error")) is True
+
+    # Should not retry on other exceptions
+    assert _should_retry_on(policy, TypeError("test error")) is False
+    assert _should_retry_on(policy, Exception("test error")) is False

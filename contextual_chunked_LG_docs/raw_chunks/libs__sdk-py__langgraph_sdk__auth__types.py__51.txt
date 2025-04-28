@@ -1,0 +1,31 @@
+"""Payload for updating a cron job.
+
+???+ example "Examples"
+    ```python
+    update_params = {
+        "cron_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "payload": {"key": "value"},
+        "schedule": "0 0 * * *"
+    }
+    ```"""
+class CronsUpdate(typing.TypedDict, total=False):
+    """Payload for updating a cron job.
+
+    ???+ example "Examples"
+        ```python
+        update_params = {
+            "cron_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "payload": {"key": "value"},
+            "schedule": "0 0 * * *"
+        }
+        ```
+    """
+
+    cron_id: UUID
+    """Unique identifier for the cron job."""
+
+    payload: typing.Optional[typing.Dict[str, typing.Any]]
+    """typing.Optional payload to update."""
+
+    schedule: typing.Optional[str]
+    """typing.Optional schedule to update."""

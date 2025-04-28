@@ -1,0 +1,38 @@
+"""Represents an item returned from a search operation with additional metadata."""
+class SearchItem(Item):
+
+
+    __slots__ = ("score",)
+
+    def __init__(
+        self,
+        namespace: tuple[str, ...],
+        key: str,
+        value: dict[str, Any],
+        created_at: datetime,
+        updated_at: datetime,
+        score: Optional[float] = None,
+    ) -> None:
+        """Initialize a result item.
+
+        Args:
+            namespace: Hierarchical path to the item.
+            key: Unique identifier within the namespace.
+            value: The stored value.
+            created_at: When the item was first created.
+            updated_at: When the item was last updated.
+            score: Relevance/similarity score if from a ranked operation.
+        """
+        super().__init__(
+            value=value,
+            key=key,
+            namespace=namespace,
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+        self.score = score
+
+    def dict(self) -> dict:
+        result = super().dict()
+        result["score"] = self.score
+        return result

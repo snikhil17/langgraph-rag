@@ -1,0 +1,2 @@
+def _exclude_keys(config: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in config.items() if k not in EXCLUDED_METADATA_KEYS}

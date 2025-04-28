@@ -1,0 +1,66 @@
+def test_saved_checkpoint_state_graph(
+    request: pytest.FixtureRequest,
+    checkpointer_name: str,
+    checkpoint_version: str,
+) -> None:
+    checkpointer: BaseCheckpointSaver = request.getfixturevalue(
+        f"checkpointer_{checkpointer_name}"
+    )
+
+    builder = make_state_graph()
+    app = builder.compile(checkpointer=checkpointer)
+
+    thread1 = "1"
+    config = {"configurable": {"thread_id": thread1, "checkpoint_ns": ""}}
+
+    # save checkpoints
+    parent_id: Optional[str] = None
+    for checkpoint in reversed(SAVED_CHECKPOINTS[checkpoint_version]):
+        grouped_writes = defaultdict(list)
+        for write in checkpoint.pending_writes:
+            grouped_writes[write[0]].append(write[1:])
+        for tid, group in grouped_writes.items():
+            checkpointer.put_writes(checkpoint.config, group, tid)
+        checkpointer.put(
+            patch_configurable(config, {"checkpoint_id": parent_id}),
+            checkpoint.checkpoint,
+            checkpoint.metadata,
+            checkpoint.checkpoint["channel_versions"],
+        )
+        parent_id = checkpoint.checkpoint["id"]
+
+    # load history
+    history = [*app.get_state_history(config)]
+    # check history with saved checkpoints matches expected history
+    exc_task_results: int = 0
+    if checkpoint_version == "2-start:*":
+        exc_task_results = 1
+    elif checkpoint_version == "2-quadratic":
+        exc_task_results = 2
+    expected_history = get_expected_history(exc_task_results=exc_task_results)
+    assert len(history) == len(expected_history)
+    assert history[0] == expected_history[0]
+    assert history[1] == expected_history[1]
+    assert history[2] == expected_history[2]
+    assert history[3] == expected_history[3]
+    assert history[4] == expected_history[4]
+    assert history[5] == expected_history[5]
+
+    # resume from 2nd to latest checkpoint
+    assert [*app.stream(Command(resume=""), history[1].config)] == [
+        {"qa": {"answer": "doc1,doc2,doc3,doc4"}},
+    ]
+    # new checkpoint should match the latest checkpoint in history
+    latest_state = app.get_state(config)
+    assert (
+        StateSnapshot(
+            values=latest_state.values,
+            next=latest_state.next,
+            config=patch_configurable(latest_state.config, {"checkpoint_id": AnyStr()}),
+            metadata=AnyDict(latest_state.metadata),
+            created_at=AnyStr(),
+            parent_config=latest_state.parent_config,
+            tasks=latest_state.tasks,
+        )
+        == history[0]
+    )

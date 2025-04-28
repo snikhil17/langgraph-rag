@@ -1,0 +1,19 @@
+"""Represents a request for human action within the graph execution.
+
+Contains the action type and any associated arguments needed for the action.
+
+Attributes:
+    action: The type or name of action being requested (e.g., "Approve XYZ action")
+    args: Key-value pairs of arguments needed for the action"""
+class ActionRequest(TypedDict):
+    """Represents a request for human action within the graph execution.
+
+    Contains the action type and any associated arguments needed for the action.
+
+    Attributes:
+        action: The type or name of action being requested (e.g., "Approve XYZ action")
+        args: Key-value pairs of arguments needed for the action
+    """
+
+    action: str
+    args: dict

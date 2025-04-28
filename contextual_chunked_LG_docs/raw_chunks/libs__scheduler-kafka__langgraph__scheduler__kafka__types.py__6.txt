@@ -1,0 +1,4 @@
+class MessageToOrchestrator(TypedDict):
+    input: Optional[dict[str, Any]]
+    config: RunnableConfig
+    finally_send: Optional[Sequence[Sendable]]

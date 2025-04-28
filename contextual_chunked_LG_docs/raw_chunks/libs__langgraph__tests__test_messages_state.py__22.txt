@@ -1,0 +1,7 @@
+def test_remove_nonexistent_message():
+    left = [HumanMessage(content="Hello", id="1")]
+    right = RemoveMessage(id="2")
+    with pytest.raises(
+        ValueError, match="Attempting to delete a message with an ID that doesn't exist"
+    ):
+        add_messages(left, right)

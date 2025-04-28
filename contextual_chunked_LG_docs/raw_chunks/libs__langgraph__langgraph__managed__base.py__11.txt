@@ -1,0 +1,3 @@
+class ConfiguredManagedValue(NamedTuple):
+    cls: type[ManagedValue]
+    kwargs: dict[str, Any]

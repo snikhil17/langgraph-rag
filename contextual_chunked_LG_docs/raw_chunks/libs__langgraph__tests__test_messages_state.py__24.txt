@@ -1,0 +1,8 @@
+def test_empty_inputs():
+    assert add_messages([], []) == []
+    assert add_messages([], [HumanMessage(content="Hello", id="1")]) == [
+        HumanMessage(content="Hello", id="1")
+    ]
+    assert add_messages([HumanMessage(content="Hello", id="1")], []) == [
+        HumanMessage(content="Hello", id="1")
+    ]

@@ -1,0 +1,25 @@
+def _ensure_index_config(
+    index_config: PostgresIndexConfig,
+) -> tuple[Optional["Embeddings"], PostgresIndexConfig]:
+    index_config = index_config.copy()
+    tokenized: list[tuple[str, Union[Literal["$"], list[str]]]] = []
+    tot = 0
+    text_fields = index_config.get("fields") or ["$"]
+    if isinstance(text_fields, str):
+        text_fields = [text_fields]
+    if not isinstance(text_fields, list):
+        raise ValueError(f"Text fields must be a list or a string. Got {text_fields}")
+    for p in text_fields:
+        if p == "$":
+            tokenized.append((p, "$"))
+            tot += 1
+        else:
+            toks = tokenize_path(p)
+            tokenized.append((p, toks))
+            tot += len(toks)
+    index_config["__tokenized_fields"] = tokenized
+    index_config["__estimated_num_vectors"] = tot
+    embeddings = ensure_embeddings(
+        index_config.get("embed"),
+    )
+    return embeddings, index_config

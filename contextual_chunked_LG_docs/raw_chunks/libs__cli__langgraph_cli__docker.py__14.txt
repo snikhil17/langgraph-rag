@@ -1,0 +1,20 @@
+"""Convert a dictionary to a YAML string."""
+def dict_to_yaml(d: dict, *, indent: int = 0) -> str:
+
+    yaml_str = ""
+
+    for idx, (key, value) in enumerate(d.items()):
+        # Format things in a visually appealing way
+        # Use an extra newline for top-level keys only
+        if idx >= 1 and indent < 2:
+            yaml_str += "\n"
+        space = "    " * indent
+        if isinstance(value, dict):
+            yaml_str += f"{space}{key}:\n" + dict_to_yaml(value, indent=indent + 1)
+        elif isinstance(value, list):
+            yaml_str += f"{space}{key}:\n"
+            for item in value:
+                yaml_str += f"{space}    - {item}\n"
+        else:
+            yaml_str += f"{space}{key}: {value}\n"
+    return yaml_str

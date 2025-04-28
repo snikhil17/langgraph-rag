@@ -1,0 +1,167 @@
+"""Handle async requests to the LangGraph API.
+
+Adds additional error messaging & content handling above the
+provided httpx client.
+
+Attributes:
+    client (httpx.AsyncClient): Underlying HTTPX async client."""
+class HttpClient:
+    """Handle async requests to the LangGraph API.
+
+    Adds additional error messaging & content handling above the
+    provided httpx client.
+
+    Attributes:
+        client (httpx.AsyncClient): Underlying HTTPX async client.
+    """
+
+    def __init__(self, client: httpx.AsyncClient) -> None:
+        self.client = client
+
+    async def get(
+        self,
+        path: str,
+        *,
+        params: Optional[QueryParamTypes] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        """Send a GET request."""
+        r = await self.client.get(path, params=params, headers=headers)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = (await r.aread()).decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return await adecode_json(r)
+
+    async def post(
+        self,
+        path: str,
+        *,
+        json: Optional[dict],
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        """Send a POST request."""
+        if json is not None:
+            request_headers, content = await aencode_json(json)
+        else:
+            request_headers, content = {}, b""
+        # Merge headers, with runtime headers taking precedence
+        if headers:
+            request_headers.update(headers)
+        r = await self.client.post(path, headers=request_headers, content=content)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = (await r.aread()).decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return await adecode_json(r)
+
+    async def put(
+        self, path: str, *, json: dict, headers: Optional[dict[str, str]] = None
+    ) -> Any:
+        """Send a PUT request."""
+        request_headers, content = await aencode_json(json)
+        if headers:
+            request_headers.update(headers)
+        r = await self.client.put(path, headers=request_headers, content=content)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = (await r.aread()).decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return await adecode_json(r)
+
+    async def patch(
+        self, path: str, *, json: dict, headers: Optional[dict[str, str]] = None
+    ) -> Any:
+        """Send a PATCH request."""
+        request_headers, content = await aencode_json(json)
+        if headers:
+            request_headers.update(headers)
+        r = await self.client.patch(path, headers=request_headers, content=content)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = (await r.aread()).decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return await adecode_json(r)
+
+    async def delete(
+        self,
+        path: str,
+        *,
+        json: Optional[Any] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> None:
+        """Send a DELETE request."""
+        r = await self.client.request("DELETE", path, json=json, headers=headers)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = (await r.aread()).decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+
+    async def stream(
+        self,
+        path: str,
+        method: str,
+        *,
+        json: Optional[dict] = None,
+        params: Optional[QueryParamTypes] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> AsyncIterator[StreamPart]:
+        """Stream results using SSE."""
+        request_headers, content = await aencode_json(json)
+        request_headers["Accept"] = "text/event-stream"
+        request_headers["Cache-Control"] = "no-store"
+        # Add runtime headers with precedence
+        if headers:
+            request_headers.update(headers)
+
+        async with self.client.stream(
+            method, path, headers=request_headers, content=content, params=params
+        ) as res:
+            # check status
+            try:
+                res.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                body = (await res.aread()).decode()
+                if sys.version_info >= (3, 11):
+                    e.add_note(body)
+                else:
+                    logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+                raise e
+            # check content type
+            content_type = res.headers.get("content-type", "").partition(";")[0]
+            if "text/event-stream" not in content_type:
+                raise httpx.TransportError(
+                    "Expected response header Content-Type to contain 'text/event-stream', "
+                    f"got {content_type!r}"
+                )
+            # parse SSE
+            decoder = SSEDecoder()
+            async for line in aiter_lines_raw(res):
+                sse = decoder.decode(line=line.rstrip(b"\n"))
+                if sse is not None:
+                    yield sse

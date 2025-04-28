@@ -1,0 +1,32 @@
+"""Convert a row from the database into an Item.
+
+Args:
+    namespace: Item namespace
+    row: Database row
+    loader: Optional value loader for non-dict values"""
+def _row_to_item(
+    namespace: tuple[str, ...],
+    row: Row,
+    *,
+    loader: Optional[Callable[[Union[bytes, orjson.Fragment]], dict[str, Any]]] = None,
+) -> Item:
+    """Convert a row from the database into an Item.
+
+    Args:
+        namespace: Item namespace
+        row: Database row
+        loader: Optional value loader for non-dict values
+    """
+    val = row["value"]
+    if not isinstance(val, dict):
+        val = (loader or _json_loads)(val)
+
+    kwargs = {
+        "key": row["key"],
+        "namespace": namespace,
+        "value": val,
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+    return Item(**kwargs)

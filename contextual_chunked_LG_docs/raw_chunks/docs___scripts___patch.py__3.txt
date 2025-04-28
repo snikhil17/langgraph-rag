@@ -1,0 +1,7 @@
+def _ensure_str(s, encoding="utf-8", errors="strict") -> str:
+    if isinstance(s, str):
+        return s
+
+    if isinstance(s, bytes):
+        return s.decode(encoding, errors)
+    return str(s)

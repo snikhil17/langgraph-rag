@@ -1,0 +1,11 @@
+def _is_injection(
+    type_arg: Any, injection_type: Union[Type[InjectedState], Type[InjectedStore]]
+) -> bool:
+    if isinstance(type_arg, injection_type) or (
+        isinstance(type_arg, type) and issubclass(type_arg, injection_type)
+    ):
+        return True
+    origin_ = get_origin(type_arg)
+    if origin_ is Union or origin_ is Annotated:
+        return any(_is_injection(ta, injection_type) for ta in get_args(type_arg))
+    return False

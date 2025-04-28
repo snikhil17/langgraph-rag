@@ -1,0 +1,6 @@
+class CheckpointTask(TypedDict):
+    id: str
+    name: str
+    error: Optional[str]
+    interrupts: list[dict]
+    state: Optional[RunnableConfig]

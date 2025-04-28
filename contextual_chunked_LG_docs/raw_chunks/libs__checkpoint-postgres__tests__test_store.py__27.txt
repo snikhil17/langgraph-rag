@@ -1,0 +1,21 @@
+"""Test inserting items that get auto-embedded."""
+def test_vector_insert_with_auto_embedding(vector_store: PostgresStore) -> None:
+
+    docs = [
+        ("doc1", {"text": "short text"}),
+        ("doc2", {"text": "longer text document"}),
+        ("doc3", {"text": "longest text document here"}),
+        ("doc4", {"description": "text in description field"}),
+        ("doc5", {"content": "text in content field"}),
+        ("doc6", {"body": "text in body field"}),
+    ]
+
+    for key, value in docs:
+        vector_store.put(("test",), key, value)
+
+    results = vector_store.search(("test",), query="long text")
+    assert len(results) > 0
+
+    doc_order = [r.key for r in results]
+    assert "doc2" in doc_order
+    assert "doc3" in doc_order

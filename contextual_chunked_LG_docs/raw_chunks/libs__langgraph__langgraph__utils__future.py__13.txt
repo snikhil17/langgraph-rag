@@ -1,0 +1,10 @@
+def _convert_future_exc(exc: BaseException) -> BaseException:
+    exc_class = type(exc)
+    if exc_class is concurrent.futures.CancelledError:
+        return asyncio.CancelledError(*exc.args)
+    elif exc_class is concurrent.futures.TimeoutError:
+        return asyncio.TimeoutError(*exc.args)
+    elif exc_class is concurrent.futures.InvalidStateError:
+        return asyncio.InvalidStateError(*exc.args)
+    else:
+        return exc

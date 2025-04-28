@@ -1,0 +1,5 @@
+"""Raised when graph receives an empty input."""
+class EmptyInputError(Exception):
+
+
+    pass

@@ -1,0 +1,66 @@
+"""Test the default retry_on function."""
+def test_should_retry_default_retry_on():
+
+    import httpx
+    import requests
+
+    # Create a RetryPolicy with default_retry_on
+    policy = RetryPolicy()
+
+    # Should retry on ConnectionError
+    assert _should_retry_on(policy, ConnectionError("connection refused")) is True
+
+    # Should not retry on common programming errors
+    assert _should_retry_on(policy, ValueError("invalid value")) is False
+    assert _should_retry_on(policy, TypeError("invalid type")) is False
+    assert _should_retry_on(policy, ArithmeticError("division by zero")) is False
+    assert _should_retry_on(policy, ImportError("module not found")) is False
+    assert _should_retry_on(policy, LookupError("key not found")) is False
+    assert _should_retry_on(policy, NameError("name not defined")) is False
+    assert _should_retry_on(policy, SyntaxError("invalid syntax")) is False
+    assert _should_retry_on(policy, RuntimeError("runtime error")) is False
+    assert _should_retry_on(policy, ReferenceError("weak reference")) is False
+    assert _should_retry_on(policy, StopIteration()) is False
+    assert _should_retry_on(policy, StopAsyncIteration()) is False
+    assert _should_retry_on(policy, OSError("file not found")) is False
+
+    # Should retry on httpx.HTTPStatusError with 5xx status code
+    response_5xx = Mock()
+    response_5xx.status_code = 503
+    http_error_5xx = httpx.HTTPStatusError(
+        "server error", request=Mock(), response=response_5xx
+    )
+    assert _should_retry_on(policy, http_error_5xx) is True
+
+    # Should not retry on httpx.HTTPStatusError with 4xx status code
+    response_4xx = Mock()
+    response_4xx.status_code = 404
+    http_error_4xx = httpx.HTTPStatusError(
+        "not found", request=Mock(), response=response_4xx
+    )
+    assert _should_retry_on(policy, http_error_4xx) is False
+
+    # Should retry on requests.HTTPError with 5xx status code
+    response_req_5xx = Mock()
+    response_req_5xx.status_code = 502
+    req_error_5xx = requests.HTTPError("bad gateway")
+    req_error_5xx.response = response_req_5xx
+    assert _should_retry_on(policy, req_error_5xx) is True
+
+    # Should not retry on requests.HTTPError with 4xx status code
+    response_req_4xx = Mock()
+    response_req_4xx.status_code = 400
+    req_error_4xx = requests.HTTPError("bad request")
+    req_error_4xx.response = response_req_4xx
+    assert _should_retry_on(policy, req_error_4xx) is False
+
+    # Should retry on requests.HTTPError with no response
+    req_error_no_resp = requests.HTTPError("connection error")
+    req_error_no_resp.response = None
+    assert _should_retry_on(policy, req_error_no_resp) is True
+
+    # Should retry on other exceptions by default
+    class CustomException(Exception):
+        pass
+
+    assert _should_retry_on(policy, CustomException("custom error")) is True

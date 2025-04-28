@@ -1,0 +1,79 @@
+"""Merge two lists of UI messages, supporting removing UI messages.
+
+This function combines two lists of UI messages, handling both regular UI messages
+and `remove-ui` messages. When a `remove-ui` message is encountered, it removes any
+UI message with the matching ID from the current state.
+
+Args:
+    left: First list of UI messages or single UI message.
+    right: Second list of UI messages or single UI message.
+
+Returns:
+    Combined list of UI messages with removals applied.
+
+Example:
+
+.. code-block:: python
+
+    messages = ui_message_reducer(
+        [{"type": "ui", "id": "1", "name": "Chat", "props": {}}],
+        {"type": "remove-ui", "id": "1"}
+    )"""
+def ui_message_reducer(
+    left: Union[list[AnyUIMessage], AnyUIMessage],
+    right: Union[list[AnyUIMessage], AnyUIMessage],
+) -> list[AnyUIMessage]:
+    """Merge two lists of UI messages, supporting removing UI messages.
+
+    This function combines two lists of UI messages, handling both regular UI messages
+    and `remove-ui` messages. When a `remove-ui` message is encountered, it removes any
+    UI message with the matching ID from the current state.
+
+    Args:
+        left: First list of UI messages or single UI message.
+        right: Second list of UI messages or single UI message.
+
+    Returns:
+        Combined list of UI messages with removals applied.
+
+    Example:
+
+    .. code-block:: python
+
+        messages = ui_message_reducer(
+            [{"type": "ui", "id": "1", "name": "Chat", "props": {}}],
+            {"type": "remove-ui", "id": "1"}
+        )
+
+    """
+    if not isinstance(left, list):
+        left = [left]
+
+    if not isinstance(right, list):
+        right = [right]
+
+    # merge messages
+    merged = left.copy()
+    merged_by_id = {m.get("id"): i for i, m in enumerate(merged)}
+    ids_to_remove = set()
+
+    for msg in right:
+        msg_id = msg.get("id")
+
+        if (existing_idx := merged_by_id.get(msg_id)) is not None:
+            if msg.get("type") == "remove-ui":
+                ids_to_remove.add(msg_id)
+            else:
+                ids_to_remove.discard(msg_id)
+                merged[existing_idx] = msg
+        else:
+            if msg.get("type") == "remove-ui":
+                raise ValueError(
+                    f"Attempting to delete an UI message with an ID that doesn't exist ('{msg_id}')"
+                )
+
+            merged_by_id[msg_id] = len(merged)
+            merged.append(msg)
+
+    merged = [m for m in merged if m.get("id") not in ids_to_remove]
+    return merged

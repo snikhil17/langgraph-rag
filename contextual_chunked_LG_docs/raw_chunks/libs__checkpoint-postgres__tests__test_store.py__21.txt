@@ -1,0 +1,47 @@
+def test_search(store) -> None:
+    # Create test data
+    test_data = [
+        (
+            ("test", "docs"),
+            "doc1",
+            {"title": "First Doc", "author": "Alice", "tags": ["important"]},
+        ),
+        (
+            ("test", "docs"),
+            "doc2",
+            {"title": "Second Doc", "author": "Bob", "tags": ["draft"]},
+        ),
+        (
+            ("test", "images"),
+            "img1",
+            {"title": "Image 1", "author": "Alice", "tags": ["final"]},
+        ),
+    ]
+
+    for namespace, key, value in test_data:
+        store.put(namespace, key, value)
+
+    # Test basic search
+    all_items = store.search(["test"])
+    assert len(all_items) == 3
+
+    # Test namespace filtering
+    docs_items = store.search(["test", "docs"])
+    assert len(docs_items) == 2
+    assert all(item.namespace == ("test", "docs") for item in docs_items)
+
+    # Test value filtering
+    alice_items = store.search(["test"], filter={"author": "Alice"})
+    assert len(alice_items) == 2
+    assert all(item.value["author"] == "Alice" for item in alice_items)
+
+    # Test pagination
+    paginated_items = store.search(["test"], limit=2)
+    assert len(paginated_items) == 2
+
+    offset_items = store.search(["test"], offset=2)
+    assert len(offset_items) == 1
+
+    # Cleanup
+    for namespace, key, _ in test_data:
+        store.delete(namespace, key)

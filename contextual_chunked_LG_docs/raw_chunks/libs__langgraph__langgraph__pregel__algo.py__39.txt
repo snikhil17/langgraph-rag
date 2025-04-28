@@ -1,0 +1,136 @@
+"""Prepare the set of tasks that will make up the next Pregel step.
+
+Args:
+    checkpoint: The current checkpoint.
+    pending_writes: The list of pending writes.
+    processes: The mapping of process names to PregelNode instances.
+    channels: The mapping of channel names to BaseChannel instances.
+    managed: The mapping of managed value names to functions.
+    config: The runnable configuration.
+    step: The current step.
+    for_execution: Whether the tasks are being prepared for execution.
+    store: An instance of BaseStore to make it available for usage within tasks.
+    checkpointer: Checkpointer instance used for saving checkpoints.
+    manager: The parent run manager to use for the tasks.
+    trigger_to_nodes: Optional: Mapping of channel names to the set of nodes
+        that are can be triggered by that channel.
+    updated_channels: Optional. Set of channel names that have been updated during
+        the previous step. Using in conjunction with trigger_to_nodes to speed
+        up the process of determining which nodes should be triggered in the next
+        step.
+
+Returns:
+    A dictionary of tasks to be executed. The keys are the task ids and the values
+    are the tasks themselves. This is the union of all PUSH tasks (Sends)
+    and PULL tasks (nodes triggered by edges)."""
+def prepare_next_tasks(
+    checkpoint: Checkpoint,
+    pending_writes: list[PendingWrite],
+    processes: Mapping[str, PregelNode],
+    channels: Mapping[str, BaseChannel],
+    managed: ManagedValueMapping,
+    config: RunnableConfig,
+    step: int,
+    *,
+    for_execution: bool,
+    store: Optional[BaseStore] = None,
+    checkpointer: Optional[BaseCheckpointSaver] = None,
+    manager: Union[None, ParentRunManager, AsyncParentRunManager] = None,
+    trigger_to_nodes: Optional[Mapping[str, Sequence[str]]] = None,
+    updated_channels: Optional[set[str]] = None,
+) -> Union[dict[str, PregelTask], dict[str, PregelExecutableTask]]:
+    """Prepare the set of tasks that will make up the next Pregel step.
+
+    Args:
+        checkpoint: The current checkpoint.
+        pending_writes: The list of pending writes.
+        processes: The mapping of process names to PregelNode instances.
+        channels: The mapping of channel names to BaseChannel instances.
+        managed: The mapping of managed value names to functions.
+        config: The runnable configuration.
+        step: The current step.
+        for_execution: Whether the tasks are being prepared for execution.
+        store: An instance of BaseStore to make it available for usage within tasks.
+        checkpointer: Checkpointer instance used for saving checkpoints.
+        manager: The parent run manager to use for the tasks.
+        trigger_to_nodes: Optional: Mapping of channel names to the set of nodes
+            that are can be triggered by that channel.
+        updated_channels: Optional. Set of channel names that have been updated during
+            the previous step. Using in conjunction with trigger_to_nodes to speed
+            up the process of determining which nodes should be triggered in the next
+            step.
+
+    Returns:
+        A dictionary of tasks to be executed. The keys are the task ids and the values
+        are the tasks themselves. This is the union of all PUSH tasks (Sends)
+        and PULL tasks (nodes triggered by edges).
+    """
+    input_cache: dict[INPUT_CACHE_KEY_TYPE, Any] = {}
+    checkpoint_id_bytes = binascii.unhexlify(checkpoint["id"].replace("-", ""))
+    null_version = checkpoint_null_version(checkpoint)
+    tasks: list[Union[PregelTask, PregelExecutableTask]] = []
+    # Consume pending_sends from previous step
+    for idx, _ in enumerate(checkpoint["pending_sends"]):
+        if task := prepare_single_task(
+            (PUSH, idx),
+            None,
+            checkpoint=checkpoint,
+            checkpoint_id_bytes=checkpoint_id_bytes,
+            checkpoint_null_version=null_version,
+            pending_writes=pending_writes,
+            processes=processes,
+            channels=channels,
+            managed=managed,
+            config=config,
+            step=step,
+            for_execution=for_execution,
+            store=store,
+            checkpointer=checkpointer,
+            manager=manager,
+            input_cache=input_cache,
+        ):
+            tasks.append(task)
+
+    # This section is an optimization that allows which nodes will be active
+    # during the next step.
+    # When there's information about:
+    # 1. Which channels were updated in the previous step
+    # 2. Which nodes are triggered by which channels
+    # Then we can determine which nodes should be triggered in the next step
+    # without having to cycle through all nodes.
+    if updated_channels and trigger_to_nodes:
+        triggered_nodes: set[str] = set()
+        # Get all nodes that have triggers associated with an updated channel
+        for channel in updated_channels:
+            if node_ids := trigger_to_nodes.get(channel):
+                triggered_nodes.update(node_ids)
+        # Sort the nodes to ensure deterministic order
+        candidate_nodes: Iterable[str] = sorted(triggered_nodes)
+    elif not checkpoint["channel_versions"]:
+        candidate_nodes = ()
+    else:
+        candidate_nodes = processes.keys()
+
+    # Check if any processes should be run in next step
+    # If so, prepare the values to be passed to them
+    for name in candidate_nodes:
+        if task := prepare_single_task(
+            (PULL, name),
+            None,
+            checkpoint=checkpoint,
+            checkpoint_id_bytes=checkpoint_id_bytes,
+            checkpoint_null_version=null_version,
+            pending_writes=pending_writes,
+            processes=processes,
+            channels=channels,
+            managed=managed,
+            config=config,
+            step=step,
+            for_execution=for_execution,
+            store=store,
+            checkpointer=checkpointer,
+            manager=manager,
+            input_cache=input_cache,
+        ):
+            tasks.append(task)
+    return {t.id: t for t in tasks}

@@ -1,0 +1,71 @@
+"""Payload for creating a run.
+
+???+ example "Examples"
+    ```python
+    create_params = {
+        "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "thread_id": UUID("123e4567-e89b-12d3-a456-426614174001"),
+        "run_id": UUID("123e4567-e89b-12d3-a456-426614174002"),
+        "status": "pending",
+        "metadata": {"owner": "user123"},
+        "prevent_insert_if_inflight": True,
+        "multitask_strategy": "reject",
+        "if_not_exists": "create",
+        "after_seconds": 10,
+        "kwargs": {"key": "value"},
+        "action": "interrupt"
+    }
+    ```"""
+class RunsCreate(typing.TypedDict, total=False):
+    """Payload for creating a run.
+
+    ???+ example "Examples"
+        ```python
+        create_params = {
+            "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "thread_id": UUID("123e4567-e89b-12d3-a456-426614174001"),
+            "run_id": UUID("123e4567-e89b-12d3-a456-426614174002"),
+            "status": "pending",
+            "metadata": {"owner": "user123"},
+            "prevent_insert_if_inflight": True,
+            "multitask_strategy": "reject",
+            "if_not_exists": "create",
+            "after_seconds": 10,
+            "kwargs": {"key": "value"},
+            "action": "interrupt"
+        }
+        ```
+    """
+
+    assistant_id: typing.Optional[UUID]
+    """typing.Optional assistant ID to use for this run."""
+
+    thread_id: typing.Optional[UUID]
+    """typing.Optional thread ID to use for this run."""
+
+    run_id: typing.Optional[UUID]
+    """typing.Optional run ID to use for this run."""
+
+    status: typing.Optional[RunStatus]
+    """typing.Optional status for this run."""
+
+    metadata: MetadataInput
+    """typing.Optional metadata for the run."""
+
+    prevent_insert_if_inflight: bool
+    """Prevent inserting a new run if one is already in flight."""
+
+    multitask_strategy: MultitaskStrategy
+    """Multitask strategy for this run."""
+
+    if_not_exists: IfNotExists
+    """IfNotExists for this run."""
+
+    after_seconds: int
+    """Number of seconds to wait before creating the run."""
+
+    kwargs: typing.Dict[str, typing.Any]
+    """Keyword arguments to pass to the run."""
+
+    action: typing.Optional[typing.Literal["interrupt", "rollback"]]
+    """Action to take if updating an existing run."""

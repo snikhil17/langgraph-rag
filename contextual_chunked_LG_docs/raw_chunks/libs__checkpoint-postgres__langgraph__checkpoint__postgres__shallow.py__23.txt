@@ -1,0 +1,19 @@
+def _dump_blobs(
+    serde: SerializerProtocol,
+    thread_id: str,
+    checkpoint_ns: str,
+    values: dict[str, Any],
+    versions: ChannelVersions,
+) -> list[tuple[str, str, str, str, Optional[bytes]]]:
+    if not versions:
+        return []
+
+    return [
+        (
+            thread_id,
+            checkpoint_ns,
+            k,
+            *(serde.dumps_typed(values[k]) if k in values else ("empty", None)),
+        )
+        for k in versions
+    ]

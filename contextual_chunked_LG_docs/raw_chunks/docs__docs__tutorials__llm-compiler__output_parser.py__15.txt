@@ -1,0 +1,4 @@
+def default_dependency_rule(idx, args: str):
+    matches = re.findall(ID_PATTERN, args)
+    numbers = [int(match) for match in matches]
+    return idx in numbers

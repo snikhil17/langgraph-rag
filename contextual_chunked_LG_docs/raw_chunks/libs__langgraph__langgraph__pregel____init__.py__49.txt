@@ -1,0 +1,8 @@
+"""Index from a trigger to nodes that depend on it."""
+def _trigger_to_nodes(nodes: dict[str, PregelNode]) -> Mapping[str, Sequence[str]]:
+
+    trigger_to_nodes: defaultdict[str, list[str]] = defaultdict(list)
+    for name, node in nodes.items():
+        for trigger in node.triggers:
+            trigger_to_nodes[trigger].append(name)
+    return dict(trigger_to_nodes)

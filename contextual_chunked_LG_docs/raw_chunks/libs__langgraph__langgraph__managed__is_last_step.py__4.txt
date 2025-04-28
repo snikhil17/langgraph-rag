@@ -1,0 +1,3 @@
+class RemainingStepsManager(ManagedValue[int]):
+    def __call__(self) -> int:
+        return self.loop.stop - self.loop.step

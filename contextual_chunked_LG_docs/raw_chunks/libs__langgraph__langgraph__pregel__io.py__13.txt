@@ -1,0 +1,16 @@
+def read_channels(
+    channels: Mapping[str, BaseChannel],
+    select: Union[Sequence[str], str],
+    *,
+    skip_empty: bool = True,
+) -> Union[dict[str, Any], Any]:
+    if isinstance(select, str):
+        return read_channel(channels, select)
+    else:
+        values: dict[str, Any] = {}
+        for k in select:
+            try:
+                values[k] = read_channel(channels, k, catch=not skip_empty)
+            except EmptyChannelError:
+                pass
+        return values

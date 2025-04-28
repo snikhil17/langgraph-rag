@@ -1,0 +1,13 @@
+"""The input to the numexpr.evaluate() function."""
+class ExecuteCode(BaseModel):
+
+
+    reasoning: str = Field(
+        ...,
+        description="The reasoning behind the code expression, including how context is included, if applicable.",
+    )
+
+    code: str = Field(
+        ...,
+        description="The simple code expression to execute by numexpr.evaluate().",
+    )

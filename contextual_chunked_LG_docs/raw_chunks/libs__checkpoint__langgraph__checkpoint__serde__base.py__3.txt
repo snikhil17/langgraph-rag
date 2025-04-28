@@ -1,0 +1,8 @@
+"""Wrap serde old serde implementations in a class with loads_typed and dumps_typed for backwards compatibility."""
+def maybe_add_typed_methods(serde: SerializerProtocol) -> SerializerProtocol:
+
+
+    if not hasattr(serde, "loads_typed") or not hasattr(serde, "dumps_typed"):
+        return SerializerCompat(serde)
+
+    return serde

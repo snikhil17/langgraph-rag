@@ -1,0 +1,6 @@
+class StateNodeSpec(NamedTuple):
+    runnable: Runnable
+    metadata: Optional[dict[str, Any]]
+    input: type[Any]
+    retry_policy: Optional[Union[RetryPolicy, Sequence[RetryPolicy]]]
+    ends: Optional[Union[tuple[str, ...], dict[str, str]]] = EMPTY_SEQ

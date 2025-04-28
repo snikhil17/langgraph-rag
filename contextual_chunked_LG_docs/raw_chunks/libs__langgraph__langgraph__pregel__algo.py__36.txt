@@ -1,0 +1,10 @@
+"""Check if there are any tasks that should be run in the next step."""
+def has_next_tasks(
+    trigger_to_nodes: Mapping[str, Sequence[str]],
+    updated_channels: set[str],
+    checkpoint: Checkpoint,
+) -> bool:
+
+    return bool(checkpoint["pending_sends"]) or not updated_channels.isdisjoint(
+        trigger_to_nodes
+    )

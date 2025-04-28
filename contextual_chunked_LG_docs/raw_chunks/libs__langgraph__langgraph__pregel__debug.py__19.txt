@@ -1,0 +1,7 @@
+class CheckpointPayload(TypedDict):
+    config: Optional[RunnableConfig]
+    metadata: CheckpointMetadata
+    values: dict[str, Any]
+    next: list[str]
+    parent_config: Optional[RunnableConfig]
+    tasks: list[CheckpointTask]

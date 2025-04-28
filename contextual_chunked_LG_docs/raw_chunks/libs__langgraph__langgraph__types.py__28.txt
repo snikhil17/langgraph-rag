@@ -1,0 +1,14 @@
+class PregelExecutableTask:
+    name: str
+    input: Any
+    proc: Runnable
+    writes: deque[tuple[str, Any]]
+    config: RunnableConfig
+    triggers: Sequence[str]
+    retry_policy: Optional[Sequence[RetryPolicy]]
+    cache_policy: Optional[CachePolicy]
+    id: str
+    path: tuple[Union[str, int, tuple], ...]
+    scheduled: bool = False
+    writers: Sequence[Runnable] = ()
+    subgraphs: Sequence["PregelProtocol"] = ()

@@ -1,0 +1,11 @@
+def print_step_checkpoint(
+    metadata: CheckpointMetadata,
+    channels: Mapping[str, BaseChannel],
+    whitelist: Sequence[str],
+) -> None:
+    step = metadata["step"]
+    print(
+        f"{get_colored_text(f'[{step}:checkpoint]', color='blue')} "
+        + get_bolded_text(f"State at the end of step {step}:\n")
+        + pformat(read_channels(channels, whitelist), depth=3)
+    )

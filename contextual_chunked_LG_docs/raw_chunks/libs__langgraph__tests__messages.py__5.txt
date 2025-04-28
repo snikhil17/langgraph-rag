@@ -1,0 +1,6 @@
+"""Create a document with an id field."""
+def _AnyIdDocument(**kwargs: Any) -> Document:
+
+    message = Document(**kwargs)
+    message.id = AnyStr()
+    return message

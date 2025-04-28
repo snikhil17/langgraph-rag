@@ -1,0 +1,33 @@
+"""Walks through the original markdown content and, after each
+Python snippet block, inserts the corresponding translated TypeScript snippet.
+It assumes that the ordering of the Python snippets
+(from extract_python_snippets) matches the order they appear in the markdown."""
+def insert_translations_into_markdown(
+    markdown: str, typescript_snippets: list[str]
+) -> str:
+    """Walks through the original markdown content and, after each
+    Python snippet block, inserts the corresponding translated TypeScript snippet.
+    It assumes that the ordering of the Python snippets
+    (from extract_python_snippets) matches the order they appear in the markdown.
+    """
+    output_lines = []
+    lines = markdown.splitlines(keepends=True)
+    inside_block = False
+    snippet_index = 0
+
+    for line in lines:
+        output_lines.append(line)
+        if not inside_block and opening_pattern.match(line):
+            # We've encountered the start of a python code block.
+            inside_block = True
+        elif inside_block:
+            if closing_pattern.match(line):
+                # End of a python snippet block.
+                inside_block = False
+                if snippet_index < len(typescript_snippets):
+                    # Insert an extra newline for clarity, then the translated TypeScript snippet.
+                    output_lines.append("\n")
+                    output_lines.append(typescript_snippets[snippet_index])
+                    output_lines.append("\n")
+                    snippet_index += 1
+    return "".join(output_lines)

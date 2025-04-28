@@ -1,0 +1,11 @@
+"""Represents a task within a thread."""
+class ThreadTask(TypedDict):
+
+
+    id: str
+    name: str
+    error: Optional[str]
+    interrupts: list[Interrupt]
+    checkpoint: Optional[Checkpoint]
+    state: Optional["ThreadState"]
+    result: Optional[dict[str, Any]]

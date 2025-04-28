@@ -1,0 +1,50 @@
+def test_checkpoint_errors() -> None:
+    class FaultyGetCheckpointer(InMemorySaver):
+        def get_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
+            raise ValueError("Faulty get_tuple")
+
+    class FaultyPutCheckpointer(MemorySaver):
+        def put(
+            self,
+            config: RunnableConfig,
+            checkpoint: Checkpoint,
+            metadata: CheckpointMetadata,
+            new_versions: Optional[dict[str, Union[str, int, float]]] = None,
+        ) -> RunnableConfig:
+            raise ValueError("Faulty put")
+
+    class FaultyPutWritesCheckpointer(InMemorySaver):
+        def put_writes(
+            self, config: RunnableConfig, writes: list[tuple[str, Any]], task_id: str
+        ) -> RunnableConfig:
+            raise ValueError("Faulty put_writes")
+
+    class FaultyVersionCheckpointer(InMemorySaver):
+        def get_next_version(self, current: Optional[int], channel: BaseChannel) -> int:
+            raise ValueError("Faulty get_next_version")
+
+    def logic(inp: str) -> str:
+        return ""
+
+    builder = StateGraph(Annotated[str, operator.add])
+    builder.add_node("agent", logic)
+    builder.add_edge(START, "agent")
+
+    graph = builder.compile(checkpointer=FaultyGetCheckpointer())
+    with pytest.raises(ValueError, match="Faulty get_tuple"):
+        graph.invoke("", {"configurable": {"thread_id": "thread-1"}})
+
+    graph = builder.compile(checkpointer=FaultyPutCheckpointer())
+    with pytest.raises(ValueError, match="Faulty put"):
+        graph.invoke("", {"configurable": {"thread_id": "thread-1"}})
+
+    graph = builder.compile(checkpointer=FaultyVersionCheckpointer())
+    with pytest.raises(ValueError, match="Faulty get_next_version"):
+        graph.invoke("", {"configurable": {"thread_id": "thread-1"}})
+
+    # add parallel node
+    builder.add_node("parallel", logic)
+    builder.add_edge(START, "parallel")
+    graph = builder.compile(checkpointer=FaultyPutWritesCheckpointer())
+    with pytest.raises(ValueError, match="Faulty put_writes"):
+        graph.invoke("", {"configurable": {"thread_id": "thread-1"}})

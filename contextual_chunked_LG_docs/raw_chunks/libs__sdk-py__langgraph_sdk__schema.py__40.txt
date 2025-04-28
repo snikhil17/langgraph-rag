@@ -1,0 +1,22 @@
+"""Represents a single document or data entry in the graph's Store.
+
+Items are used to store cross-thread memories."""
+class Item(TypedDict):
+    """Represents a single document or data entry in the graph's Store.
+
+    Items are used to store cross-thread memories.
+    """
+
+    namespace: list[str]
+    """The namespace of the item. A namespace is analogous to a document's directory."""
+    key: str
+    """The unique identifier of the item within its namespace.
+
+    In general, keys needn't be globally unique.
+    """
+    value: dict[str, Any]
+    """The value stored in the item. This is the document itself."""
+    created_at: datetime
+    """The timestamp when the item was created."""
+    updated_at: datetime
+    """The timestamp when the item was last updated."""

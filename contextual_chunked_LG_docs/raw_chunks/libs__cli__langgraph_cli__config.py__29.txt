@@ -1,0 +1,133 @@
+"""Remap each graph's import path to the correct in-container path.
+
+The config may contain entries in `graphs` that look like this:
+    {
+        "my_graph": "./mygraphs/main.py:graph_function"
+    }
+or
+    {
+        "my_graph": "./src/some_subdir/my_file.py:my_graph"
+    }
+which indicate a local file (on the host) followed by a colon and a
+callable/object attribute within that file.
+
+During the Docker build, local directories are copied into special
+`/deps/` subdirectories, so they can be installed or referenced in
+the container. This function updates each graph's import path to
+reflect its new location **inside** the Docker container.
+
+Paths inside the container must be POSIX-style paths (even if
+the host system is Windows).
+
+Args:
+    config_path: The path to the config file (e.g. `langgraph.json`).
+    config: The validated configuration dictionary.
+    local_deps: An object containing references to local dependencies:
+        - real Python packages (with a `pyproject.toml` or `setup.py`)
+        - “faux” packages that need minimal metadata to be installable
+        - potential `requirements.txt` for local dependencies
+        - container work directory (if "." is in `dependencies`)
+
+Raises:
+    ValueError: If the import string is not in the format `<module>:<attribute>`
+                or if the referenced local file is not found in `dependencies`.
+    FileNotFoundError: If the local file (module) does not actually exist on disk.
+    IsADirectoryError: If `module_str` points to a directory instead of a file."""
+def _update_graph_paths(
+    config_path: pathlib.Path, config: Config, local_deps: LocalDeps
+) -> None:
+    """Remap each graph's import path to the correct in-container path.
+
+    The config may contain entries in `graphs` that look like this:
+        {
+            "my_graph": "./mygraphs/main.py:graph_function"
+        }
+    or
+        {
+            "my_graph": "./src/some_subdir/my_file.py:my_graph"
+        }
+    which indicate a local file (on the host) followed by a colon and a
+    callable/object attribute within that file.
+
+    During the Docker build, local directories are copied into special
+    `/deps/` subdirectories, so they can be installed or referenced in
+    the container. This function updates each graph's import path to
+    reflect its new location **inside** the Docker container.
+
+    Paths inside the container must be POSIX-style paths (even if
+    the host system is Windows).
+
+    Args:
+        config_path: The path to the config file (e.g. `langgraph.json`).
+        config: The validated configuration dictionary.
+        local_deps: An object containing references to local dependencies:
+            - real Python packages (with a `pyproject.toml` or `setup.py`)
+            - “faux” packages that need minimal metadata to be installable
+            - potential `requirements.txt` for local dependencies
+            - container work directory (if "." is in `dependencies`)
+
+    Raises:
+        ValueError: If the import string is not in the format `<module>:<attribute>`
+                    or if the referenced local file is not found in `dependencies`.
+        FileNotFoundError: If the local file (module) does not actually exist on disk.
+        IsADirectoryError: If `module_str` points to a directory instead of a file.
+    """
+    for graph_id, data in config["graphs"].items():
+        if isinstance(data, dict):
+            # Then we're looking for a 'path' key
+            if "path" not in data:
+                raise ValueError(
+                    f"Graph '{graph_id}' must contain a 'path' key if "
+                    f" it is a dictionary."
+                )
+            import_str = data["path"]
+        elif isinstance(data, str):
+            import_str = data
+        else:
+            raise ValueError(
+                f"Graph '{graph_id}' must be a string or a dictionary with a 'path' key."
+            )
+
+        module_str, _, attr_str = import_str.partition(":")
+        if not module_str or not attr_str:
+            message = (
+                'Import string "{import_str}" must be in format "<module>:<attribute>".'
+            )
+            raise ValueError(message.format(import_str=import_str))
+
+        # Check for either forward slash or backslash in the module string
+        # to determine if it's a file path.
+        if "/" in module_str or "\\" in module_str:
+            # Resolve the local path properly on the current OS
+            resolved = (config_path.parent / module_str).resolve()
+            if not resolved.exists():
+                raise FileNotFoundError(f"Could not find local module: {resolved}")
+            elif not resolved.is_file():
+                raise IsADirectoryError(f"Local module must be a file: {resolved}")
+            else:
+                for path in local_deps.real_pkgs:
+                    if resolved.is_relative_to(path):
+                        container_path = (
+                            pathlib.Path("/deps")
+                            / path.name
+                            / resolved.relative_to(path)
+                        )
+                        module_str = container_path.as_posix()
+                        break
+                else:
+                    for faux_pkg, (_, destpath) in local_deps.faux_pkgs.items():
+                        if resolved.is_relative_to(faux_pkg):
+                            container_subpath = resolved.relative_to(faux_pkg)
+                            # Construct the final path, ensuring POSIX style
+                            module_str = f"{destpath}/{container_subpath.as_posix()}"
+                            break
+                    else:
+                        raise ValueError(
+                            f"Module '{import_str}' not found in 'dependencies' list. "
+                            "Add its containing package to 'dependencies' list."
+                        )
+            # update the config
+            if isinstance(data, dict):
+                config["graphs"][graph_id]["path"] = f"{module_str}:{attr_str}"
+            else:
+                config["graphs"][graph_id] = f"{module_str}:{attr_str}"

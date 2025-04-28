@@ -1,0 +1,6 @@
+"""Light weight end-to-end test."""
+def test_update_markdown_with_imports() -> None:
+
+    assert (
+        update_markdown_with_imports(MARKDOWN_IMPORTS, "some_path") == EXPECTED_MARKDOWN
+    )

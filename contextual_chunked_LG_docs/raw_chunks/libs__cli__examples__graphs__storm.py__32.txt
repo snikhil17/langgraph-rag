@@ -1,0 +1,5 @@
+def format_doc(doc, max_length=1000):
+    related = "- ".join(doc.metadata["categories"])
+    return f"### {doc.metadata['title']}\n\nSummary: {doc.page_content}\n\nRelated\n{related}"[
+        :max_length
+    ]

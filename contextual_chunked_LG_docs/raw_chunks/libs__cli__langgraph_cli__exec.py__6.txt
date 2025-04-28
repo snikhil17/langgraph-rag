@@ -1,0 +1,17 @@
+def Runner():
+    if hasattr(asyncio, "Runner"):
+        with asyncio.Runner() as runner:
+            yield runner
+    else:
+
+        class _Runner:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def run(self, coro):
+                return asyncio.run(coro)
+
+        yield _Runner()

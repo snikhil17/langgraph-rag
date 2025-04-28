@@ -1,0 +1,29 @@
+"""Test output schema inference with entrypoint.final."""
+def test_entrypoint_output_schema_with_return_and_save() -> None:
+
+
+    # Un-parameterized entrypoint.final is interpreted as entrypoint.final[Any, Any]
+    @entrypoint()
+    def foo2(inputs, *, previous: Any) -> entrypoint.final:
+        return entrypoint.final(value="foo", save=1)
+
+    assert foo2.get_output_schema().model_json_schema() == {
+        "title": "LangGraphOutput",
+    }
+
+    @entrypoint()
+    def foo(inputs, *, previous: Any) -> entrypoint.final[str, int]:
+        return entrypoint.final(value="foo", save=1)
+
+    assert foo.get_output_schema().model_json_schema() == {
+        "title": "LangGraphOutput",
+        "type": "string",
+    }
+
+    with pytest.raises(TypeError):
+        # Raise an exception on an improperly parameterized entrypoint.final
+        # User is attempting to parameterize in this case, so we'll offer
+        # a bit of help if it's not done correctly.
+        @entrypoint()
+        def foo(inputs, *, previous: Any) -> entrypoint.final[int]:
+            return entrypoint.final(value=1, save=1)  # type: ignore

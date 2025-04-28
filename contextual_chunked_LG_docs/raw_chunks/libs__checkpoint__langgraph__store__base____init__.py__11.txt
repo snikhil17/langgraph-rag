@@ -1,0 +1,55 @@
+"""Operation to retrieve a specific item by its namespace and key.
+
+This operation allows precise retrieval of stored items using their full path
+(namespace) and unique identifier (key) combination.
+
+???+ example "Examples"
+
+    Basic item retrieval:
+    ```python
+    GetOp(namespace=("users", "profiles"), key="user123")
+    GetOp(namespace=("cache", "embeddings"), key="doc456")
+    ```"""
+class GetOp(NamedTuple):
+    """Operation to retrieve a specific item by its namespace and key.
+
+    This operation allows precise retrieval of stored items using their full path
+    (namespace) and unique identifier (key) combination.
+
+    ???+ example "Examples"
+
+        Basic item retrieval:
+        ```python
+        GetOp(namespace=("users", "profiles"), key="user123")
+        GetOp(namespace=("cache", "embeddings"), key="doc456")
+        ```
+    """
+
+    namespace: tuple[str, ...]
+    """Hierarchical path that uniquely identifies the item's location.
+
+    ???+ example "Examples"
+
+        ```python
+        ("users",)  # Root level users namespace
+        ("users", "profiles")  # Profiles within users namespace
+        ```
+    """
+
+    key: str
+    """Unique identifier for the item within its specific namespace.
+
+    ???+ example "Examples"
+
+        ```python
+        "user123"  # For a user profile
+        "doc456"  # For a document
+        ```
+    """
+    refresh_ttl: bool = True
+    """Whether to refresh TTLs for the returned item.
+
+    If no TTL was specified for the original item(s),
+    or if TTL support is not enabled for your adapter,
+    this argument is ignored.
+    """

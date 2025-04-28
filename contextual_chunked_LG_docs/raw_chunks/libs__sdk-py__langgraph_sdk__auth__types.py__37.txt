@@ -1,0 +1,31 @@
+"""Parameters for creating a new thread.
+
+???+ example "Examples"
+    ```python
+    create_params = {
+        "thread_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "metadata": {"owner": "user123"},
+        "if_exists": "do_nothing"
+    }
+    ```"""
+class ThreadsCreate(typing.TypedDict, total=False):
+    """Parameters for creating a new thread.
+
+    ???+ example "Examples"
+        ```python
+        create_params = {
+            "thread_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "metadata": {"owner": "user123"},
+            "if_exists": "do_nothing"
+        }
+        ```
+    """
+
+    thread_id: UUID
+    """Unique identifier for the thread."""
+
+    metadata: MetadataInput
+    """typing.Optional metadata to attach to the thread."""
+
+    if_exists: OnConflictBehavior
+    """Behavior when a thread with the same ID already exists."""

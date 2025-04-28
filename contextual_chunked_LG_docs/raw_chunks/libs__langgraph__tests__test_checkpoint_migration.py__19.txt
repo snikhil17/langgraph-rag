@@ -1,0 +1,34 @@
+def test_migrate_checkpoints(source: str, target: str) -> None:
+    # Check that the migration function works as expected
+    builder = make_state_graph()
+    graph = builder.compile()
+
+    source_checkpoints = list(reversed(SAVED_CHECKPOINTS[source]))
+    target_checkpoints = list(reversed(SAVED_CHECKPOINTS[target]))
+    assert len(source_checkpoints) == len(target_checkpoints)
+    for idx, (source_checkpoint, target_checkpoint) in enumerate(
+        zip(source_checkpoints, target_checkpoints)
+    ):
+        # copy the checkpoint to avoid modifying the original
+        migrated = copy_checkpoint(source_checkpoint.checkpoint)
+        # migrate the checkpoint
+        graph._migrate_checkpoint(migrated)
+        # replace values that don't need to match exactly
+        migrated["id"] = AnyStr()
+        migrated["ts"] = AnyStr()
+        migrated["v"] = AnyInt()
+        for k in migrated["channel_values"]:
+            migrated["channel_values"][k] = AnyObject()
+        for v in migrated["channel_versions"]:
+            migrated["channel_versions"][v] = AnyStr(
+                migrated["channel_versions"][v].split(".")[0]
+            )
+        for c in migrated["versions_seen"]:
+            for v in migrated["versions_seen"][c]:
+                migrated["versions_seen"][c][v] = AnyStr(
+                    migrated["versions_seen"][c][v].split(".")[0]
+                )
+        # check that the migrated checkpoint matches the target checkpoint
+        assert (
+            migrated == target_checkpoint.checkpoint
+        ), f"Checkpoint mismatch at index {idx}"

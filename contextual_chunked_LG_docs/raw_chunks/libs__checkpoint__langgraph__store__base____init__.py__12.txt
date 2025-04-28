@@ -1,0 +1,127 @@
+"""Operation to search for items within a specified namespace hierarchy.
+
+This operation supports both structured filtering and natural language search
+within a given namespace prefix. It provides pagination through limit and offset
+parameters.
+
+Note:
+    Natural language search support depends on your store implementation.
+
+???+ example "Examples"
+    Search with filters and pagination:
+    ```python
+    SearchOp(
+        namespace_prefix=("documents",),
+        filter={"type": "report", "status": "active"},
+        limit=5,
+        offset=10
+    )
+    ```
+
+    Natural language search:
+    ```python
+    SearchOp(
+        namespace_prefix=("users", "content"),
+        query="technical documentation about APIs",
+        limit=20
+    )
+    ```"""
+class SearchOp(NamedTuple):
+    """Operation to search for items within a specified namespace hierarchy.
+
+    This operation supports both structured filtering and natural language search
+    within a given namespace prefix. It provides pagination through limit and offset
+    parameters.
+
+    Note:
+        Natural language search support depends on your store implementation.
+
+    ???+ example "Examples"
+        Search with filters and pagination:
+        ```python
+        SearchOp(
+            namespace_prefix=("documents",),
+            filter={"type": "report", "status": "active"},
+            limit=5,
+            offset=10
+        )
+        ```
+
+        Natural language search:
+        ```python
+        SearchOp(
+            namespace_prefix=("users", "content"),
+            query="technical documentation about APIs",
+            limit=20
+        )
+        ```
+    """
+
+    namespace_prefix: tuple[str, ...]
+    """Hierarchical path prefix defining the search scope.
+
+    ???+ example "Examples"
+
+        ```python
+        ()  # Search entire store
+        ("documents",)  # Search all documents
+        ("users", "content")  # Search within user content
+        ```
+    """
+
+    filter: Optional[dict[str, Any]] = None
+    """Key-value pairs for filtering results based on exact matches or comparison operators.
+
+    The filter supports both exact matches and operator-based comparisons.
+
+    Supported Operators:
+        - $eq: Equal to (same as direct value comparison)
+        - $ne: Not equal to
+        - $gt: Greater than
+        - $gte: Greater than or equal to
+        - $lt: Less than
+        - $lte: Less than or equal to
+
+    ???+ example "Examples"
+        Simple exact match:
+
+        ```python
+        {"status": "active"}
+        ```
+
+        Comparison operators:
+
+        ```python
+        {"score": {"$gt": 4.99}}  # Score greater than 4.99
+        ```
+
+        Multiple conditions:
+
+        ```python
+        {
+            "score": {"$gte": 3.0},
+            "color": "red"
+        }
+        ```
+    """
+
+    limit: int = 10
+    """Maximum number of items to return in the search results."""
+
+    offset: int = 0
+    """Number of matching items to skip for pagination."""
+
+    query: Optional[str] = None
+    """Natural language search query for semantic search capabilities.
+
+    ???+ example "Examples"
+        - "technical documentation about REST APIs"
+        - "machine learning papers from 2023"
+    """
+    refresh_ttl: bool = True
+    """Whether to refresh TTLs for the returned item.
+
+    If no TTL was specified for the original item(s),
+    or if TTL support is not enabled for your adapter,
+    this argument is ignored.
+    """

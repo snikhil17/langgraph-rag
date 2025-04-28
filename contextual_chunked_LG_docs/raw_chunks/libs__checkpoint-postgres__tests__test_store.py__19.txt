@@ -1,0 +1,30 @@
+def test_basic_store_ops(store) -> None:
+    namespace = ("test", "documents")
+    item_id = "doc1"
+    item_value = {"title": "Test Document", "content": "Hello, World!"}
+
+    store.put(namespace, item_id, item_value)
+    item = store.get(namespace, item_id)
+
+    assert item
+    assert item.namespace == namespace
+    assert item.key == item_id
+    assert item.value == item_value
+
+    # Test update
+    updated_value = {"title": "Updated Document", "content": "Hello, Updated!"}
+    store.put(namespace, item_id, updated_value)
+    updated_item = store.get(namespace, item_id)
+
+    assert updated_item.value == updated_value
+    assert updated_item.updated_at > item.updated_at
+
+    # Test get from non-existent namespace
+    different_namespace = ("test", "other_documents")
+    item_in_different_namespace = store.get(different_namespace, item_id)
+    assert item_in_different_namespace is None
+
+    # Test delete
+    store.delete(namespace, item_id)
+    deleted_item = store.get(namespace, item_id)
+    assert deleted_item is None

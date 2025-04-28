@@ -1,0 +1,10 @@
+class MockAsyncBatchedStore(AsyncBatchedBaseStore):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__()
+        self._store = InMemoryStore(**kwargs)
+
+    def batch(self, ops: Iterable[Op]) -> list[Result]:
+        return self._store.batch(ops)
+
+    async def abatch(self, ops: Iterable[Op]) -> list[Result]:
+        return self._store.batch(ops)

@@ -1,0 +1,38 @@
+"""Get the distance operator and score expression based on config."""
+def get_distance_operator(store: Any) -> tuple[str, str]:
+
+    # Note: Today, we are not using ANN indices due to restrictions
+    # on PGVector's support for mixing vector and non-vector filters
+    # To use the index, PGVector expects:
+    #  - ORDER BY the operator NOT an expression (even negation blocks it)
+    #  - ASCENDING order
+    #  - Any WHERE clause should be over a partial index.
+    # If we violate any of these, it will use a sequential scan
+    # See https://github.com/pgvector/pgvector/issues/216 and the
+    # pgvector documentation for more details.
+    if not store.index_config:
+        raise ValueError(
+            "Embedding configuration is required for vector operations "
+            f"(for semantic search). "
+            f"Please provide an Embeddings when initializing the {store.__class__.__name__}."
+        )
+
+    config = cast(PostgresIndexConfig, store.index_config)
+    distance_type = config.get("distance_type", "cosine")
+
+    # Return the operator and the score expression
+    # The operator is used in the CTE and will be compatible with an ASCENDING ORDER
+    # sort clause.
+    # The score expression is used in the final query and will be compatible with
+    # a DESCENDING ORDER sort clause and the user's expectations of what the similarity score
+    # should be.
+    if distance_type == "l2":
+        # Final: "-(sv.embedding <-> %s::%s)"
+        # We return the "l2 similarity" so that the sorting order is the same
+        return "sv.embedding <-> %s::%s", "-scored.neg_score"
+    elif distance_type == "inner_product":
+        # Final: "-(sv.embedding <#> %s::%s)"
+        return "sv.embedding <#> %s::%s", "-(scored.neg_score)"
+    else:  # cosine similarity
+        # Final:  "1 - (sv.embedding <=> %s::%s)"
+        return "sv.embedding <=> %s::%s", "1 - scored.neg_score"

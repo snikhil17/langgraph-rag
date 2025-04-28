@@ -1,0 +1,195 @@
+class JsonPlusSerializer(SerializerProtocol):
+    def __init__(
+        self, *, __unpack_ext_hook__: Optional[Callable[[int, bytes], Any]] = None
+    ) -> None:
+        self._unpack_ext_hook = (
+            __unpack_ext_hook__
+            if __unpack_ext_hook__ is not None
+            else _msgpack_ext_hook
+        )
+
+    def _encode_constructor_args(
+        self,
+        constructor: Union[Callable, type[Any]],
+        *,
+        method: Union[None, str, Sequence[Union[None, str]]] = None,
+        args: Optional[Sequence[Any]] = None,
+        kwargs: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        out = {
+            "lc": 2,
+            "type": "constructor",
+            "id": (*constructor.__module__.split("."), constructor.__name__),
+        }
+        if method is not None:
+            out["method"] = method
+        if args is not None:
+            out["args"] = args
+        if kwargs is not None:
+            out["kwargs"] = kwargs
+        return out
+
+    def _default(self, obj: Any) -> Union[str, dict[str, Any]]:
+        if isinstance(obj, Serializable):
+            return cast(dict[str, Any], obj.to_json())
+        elif hasattr(obj, "model_dump") and callable(obj.model_dump):
+            return self._encode_constructor_args(
+                obj.__class__, method=(None, "model_construct"), kwargs=obj.model_dump()
+            )
+        elif hasattr(obj, "dict") and callable(obj.dict):
+            return self._encode_constructor_args(
+                obj.__class__, method=(None, "construct"), kwargs=obj.dict()
+            )
+        elif hasattr(obj, "_asdict") and callable(obj._asdict):
+            return self._encode_constructor_args(obj.__class__, kwargs=obj._asdict())
+        elif isinstance(obj, pathlib.Path):
+            return self._encode_constructor_args(pathlib.Path, args=obj.parts)
+        elif isinstance(obj, re.Pattern):
+            return self._encode_constructor_args(
+                re.compile, args=(obj.pattern, obj.flags)
+            )
+        elif isinstance(obj, UUID):
+            return self._encode_constructor_args(UUID, args=(obj.hex,))
+        elif isinstance(obj, decimal.Decimal):
+            return self._encode_constructor_args(decimal.Decimal, args=(str(obj),))
+        elif isinstance(obj, (set, frozenset, deque)):
+            return self._encode_constructor_args(type(obj), args=(tuple(obj),))
+        elif isinstance(obj, (IPv4Address, IPv4Interface, IPv4Network)):
+            return self._encode_constructor_args(obj.__class__, args=(str(obj),))
+        elif isinstance(obj, (IPv6Address, IPv6Interface, IPv6Network)):
+            return self._encode_constructor_args(obj.__class__, args=(str(obj),))
+
+        elif isinstance(obj, datetime):
+            return self._encode_constructor_args(
+                datetime, method="fromisoformat", args=(obj.isoformat(),)
+            )
+        elif isinstance(obj, timezone):
+            return self._encode_constructor_args(
+                timezone,
+                args=obj.__getinitargs__(),  # type: ignore[attr-defined]
+            )
+        elif isinstance(obj, ZoneInfo):
+            return self._encode_constructor_args(ZoneInfo, args=(obj.key,))
+        elif isinstance(obj, timedelta):
+            return self._encode_constructor_args(
+                timedelta, args=(obj.days, obj.seconds, obj.microseconds)
+            )
+        elif isinstance(obj, date):
+            return self._encode_constructor_args(
+                date, args=(obj.year, obj.month, obj.day)
+            )
+        elif isinstance(obj, time):
+            return self._encode_constructor_args(
+                time,
+                args=(obj.hour, obj.minute, obj.second, obj.microsecond, obj.tzinfo),
+                kwargs={"fold": obj.fold},
+            )
+        elif dataclasses.is_dataclass(obj):
+            return self._encode_constructor_args(
+                obj.__class__,
+                kwargs={
+                    field.name: getattr(obj, field.name)
+                    for field in dataclasses.fields(obj)
+                },
+            )
+        elif isinstance(obj, Enum):
+            return self._encode_constructor_args(obj.__class__, args=(obj.value,))
+        elif isinstance(obj, SendProtocol):
+            return self._encode_constructor_args(
+                obj.__class__, kwargs={"node": obj.node, "arg": obj.arg}
+            )
+        elif isinstance(obj, (bytes, bytearray)):
+            return self._encode_constructor_args(
+                obj.__class__, method="fromhex", args=(obj.hex(),)
+            )
+        elif isinstance(obj, BaseException):
+            return repr(obj)
+        else:
+            raise TypeError(
+                f"Object of type {obj.__class__.__name__} is not JSON serializable"
+            )
+
+    def _reviver(self, value: dict[str, Any]) -> Any:
+        if (
+            value.get("lc", None) == 2
+            and value.get("type", None) == "constructor"
+            and value.get("id", None) is not None
+        ):
+            try:
+                # Get module and class name
+                [*module, name] = value["id"]
+                # Import module
+                mod = importlib.import_module(".".join(module))
+                # Import class
+                cls = getattr(mod, name)
+                # Instantiate class
+                method = value.get("method")
+                if isinstance(method, str):
+                    methods = [getattr(cls, method)]
+                elif isinstance(method, list):
+                    methods = [
+                        cls if method is None else getattr(cls, method)
+                        for method in method
+                    ]
+                else:
+                    methods = [cls]
+                args = value.get("args")
+                kwargs = value.get("kwargs")
+                for method in methods:
+                    try:
+                        if isclass(method) and issubclass(method, BaseException):
+                            return None
+                        if args and kwargs:
+                            return method(*args, **kwargs)
+                        elif args:
+                            return method(*args)
+                        elif kwargs:
+                            return method(**kwargs)
+                        else:
+                            return method()
+                    except Exception:
+                        continue
+            except Exception:
+                return None
+
+        return LC_REVIVER(value)
+
+    def dumps(self, obj: Any) -> bytes:
+        return json.dumps(obj, default=self._default, ensure_ascii=False).encode(
+            "utf-8", "ignore"
+        )
+
+    def dumps_typed(self, obj: Any) -> tuple[str, bytes]:
+        if obj is None:
+            return "null", EMPTY_BYTES
+        elif isinstance(obj, bytes):
+            return "bytes", obj
+        elif isinstance(obj, bytearray):
+            return "bytearray", obj
+        else:
+            try:
+                return "msgpack", _msgpack_enc(obj)
+            except ormsgpack.MsgpackEncodeError as exc:
+                if "valid UTF-8" in str(exc):
+                    return "json", self.dumps(obj)
+                raise exc
+
+    def loads(self, data: bytes) -> Any:
+        return json.loads(data, object_hook=self._reviver)
+
+    def loads_typed(self, data: tuple[str, bytes]) -> Any:
+        type_, data_ = data
+        if type_ == "null":
+            return None
+        elif type_ == "bytes":
+            return data_
+        elif type_ == "bytearray":
+            return bytearray(data_)
+        elif type_ == "json":
+            return self.loads(data_)
+        elif type_ == "msgpack":
+            return ormsgpack.unpackb(
+                data_, ext_hook=self._unpack_ext_hook, option=ormsgpack.OPT_NON_STR_KEYS
+            )
+        else:
+            raise NotImplementedError(f"Unknown serialization type: {type_}")

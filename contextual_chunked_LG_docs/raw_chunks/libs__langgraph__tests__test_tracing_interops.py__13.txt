@@ -1,0 +1,9 @@
+def _get_calls(
+    mock_client: Any,
+    verbs: set[str] = {"POST"},
+) -> list:
+    return [
+        c
+        for c in mock_client.session.request.mock_calls
+        if c.args and c.args[0] in verbs
+    ]

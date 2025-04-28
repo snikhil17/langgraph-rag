@@ -1,0 +1,9 @@
+def has_blocklisted_command(code: str, metadata: dict) -> bool:
+    if 'hide_from_vcr' in metadata:
+        return True
+
+    code = code.strip()
+    for blocklisted_pattern in BLOCKLIST_COMMANDS:
+        if blocklisted_pattern in code:
+            return True
+    return False

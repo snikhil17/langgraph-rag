@@ -1,0 +1,24 @@
+def _get_state_args(tool: BaseTool) -> dict[str, Optional[str]]:
+    full_schema = tool.get_input_schema()
+    tool_args_to_state_fields: dict = {}
+
+    for name, type_ in get_all_basemodel_annotations(full_schema).items():
+        injections = [
+            type_arg
+            for type_arg in get_args(type_)
+            if _is_injection(type_arg, InjectedState)
+        ]
+        if len(injections) > 1:
+            raise ValueError(
+                "A tool argument should not be annotated with InjectedState more than "
+                f"once. Received arg {name} with annotations {injections}."
+            )
+        elif len(injections) == 1:
+            injection = injections[0]
+            if isinstance(injection, InjectedState) and injection.field:
+                tool_args_to_state_fields[name] = injection.field
+            else:
+                tool_args_to_state_fields[name] = None
+        else:
+            pass
+    return tool_args_to_state_fields

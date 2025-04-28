@@ -1,0 +1,39 @@
+"""Configuration for the built-in HTTP server that powers your deployment's routes and endpoints."""
+class HttpConfig(TypedDict, total=False):
+
+
+    app: str
+    """Optional. Import path to a custom Starlette/FastAPI application to mount.
+
+    Format: "path/to/module.py:app_var"
+    If provided, it can override or extend the default routes.
+    """
+    disable_assistants: bool
+    """Optional. If True, /assistants routes are removed from the server.
+
+    Default is False (meaning /assistants is enabled).
+    """
+    disable_threads: bool
+    """Optional. If True, /threads routes are removed.
+
+    Default is False.
+    """
+    disable_runs: bool
+    """Optional. If True, /runs routes are removed.
+
+    Default is False.
+    """
+    disable_store: bool
+    """Optional. If True, /store routes are removed, disabling direct store interactions via HTTP.
+
+    Default is False.
+    """
+    disable_meta: bool
+    """Optional. If True, all meta endpoints (/ok, /info, /metrics, /docs) are disabled.
+
+    Default is False.
+    """
+    cors: Optional[CorsConfig]
+    """Optional. Defines CORS restrictions. If omitted, no special rules are set and 
+    cross-origin behavior depends on default server settings.
+    """

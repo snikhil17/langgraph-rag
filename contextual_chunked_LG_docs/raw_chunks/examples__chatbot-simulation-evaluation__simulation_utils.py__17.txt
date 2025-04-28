@@ -1,0 +1,11 @@
+"""Invoke the simulated user node."""
+def _invoke_simulated_user(state: SimulationState, simulated_user: Runnable):
+
+    runnable = (
+        simulated_user
+        if isinstance(simulated_user, Runnable)
+        else RunnableLambda(simulated_user)
+    )
+    inputs = state.get("inputs", {})
+    inputs["messages"] = state["messages"]
+    return runnable.invoke(inputs)

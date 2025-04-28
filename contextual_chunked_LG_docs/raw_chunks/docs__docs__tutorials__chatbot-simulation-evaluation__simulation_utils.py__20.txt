@@ -1,0 +1,2 @@
+def _convert_to_human_message(message: BaseMessage):
+    return {"messages": [HumanMessage(content=message.content)]}

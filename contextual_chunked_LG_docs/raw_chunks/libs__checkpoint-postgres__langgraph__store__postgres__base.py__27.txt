@@ -1,0 +1,9 @@
+"""Configuration for HNSW (Hierarchical Navigable Small World) index."""
+class HNSWConfig(ANNIndexConfig, total=False):
+
+
+    kind: Literal["hnsw"]  # type: ignore[misc]
+    m: int
+    """Maximum number of connections per layer. Default is 16."""
+    ef_construction: int
+    """Size of dynamic candidate list for index construction. Default is 64."""

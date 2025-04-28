@@ -1,0 +1,3 @@
+class NotebookFile(File):
+    def is_documentation_page(self):
+        return True

@@ -1,0 +1,178 @@
+"""Entry point for authorization handlers that control access to specific resources.
+
+The _On class provides a flexible way to define authorization rules for different resources
+and actions in your application. It supports three main usage patterns:
+
+1. Global handlers that run for all resources and actions
+2. Resource-specific handlers that run for all actions on a resource
+3. Resource and action specific handlers for fine-grained control
+
+Each handler must be an async function that accepts two parameters:
+- ctx (AuthContext): Contains request context and authenticated user info
+- value: The data being authorized (type varies by endpoint)
+
+The handler should return one of:
+    - None or True: Accept the request
+    - False: Reject with 403 error
+    - FilterType: Apply filtering rules to the response
+
+???+ example "Examples"
+
+    Global handler for all requests:
+    ```python
+    @auth.on
+    async def log_all_requests(ctx: AuthContext, value: Any) -> None:
+        print(f"Request to {ctx.path} by {ctx.user.identity}")
+        return True
+    ```
+
+    Resource-specific handler:
+    ```python
+    @auth.on.threads
+    async def check_thread_access(ctx: AuthContext, value: Any) -> bool:
+        # Allow access only to threads created by the user
+        return value.get("created_by") == ctx.user.identity
+    ```
+
+    Resource and action specific handler:
+    ```python
+    @auth.on.threads.delete
+    async def prevent_thread_deletion(ctx: AuthContext, value: Any) -> bool:
+        # Only admins can delete threads
+        return "admin" in ctx.user.permissions
+    ```
+
+    Multiple resources or actions:
+    ```python
+    @auth.on(resources=["threads", "runs"], actions=["create", "update"])
+    async def rate_limit_writes(ctx: AuthContext, value: Any) -> bool:
+        # Implement rate limiting for write operations
+        return await check_rate_limit(ctx.user.identity)
+    ```"""
+class _On:
+    """Entry point for authorization handlers that control access to specific resources.
+
+    The _On class provides a flexible way to define authorization rules for different resources
+    and actions in your application. It supports three main usage patterns:
+
+    1. Global handlers that run for all resources and actions
+    2. Resource-specific handlers that run for all actions on a resource
+    3. Resource and action specific handlers for fine-grained control
+
+    Each handler must be an async function that accepts two parameters:
+    - ctx (AuthContext): Contains request context and authenticated user info
+    - value: The data being authorized (type varies by endpoint)
+
+    The handler should return one of:
+        - None or True: Accept the request
+        - False: Reject with 403 error
+        - FilterType: Apply filtering rules to the response
+
+    ???+ example "Examples"
+
+        Global handler for all requests:
+        ```python
+        @auth.on
+        async def log_all_requests(ctx: AuthContext, value: Any) -> None:
+            print(f"Request to {ctx.path} by {ctx.user.identity}")
+            return True
+        ```
+
+        Resource-specific handler:
+        ```python
+        @auth.on.threads
+        async def check_thread_access(ctx: AuthContext, value: Any) -> bool:
+            # Allow access only to threads created by the user
+            return value.get("created_by") == ctx.user.identity
+        ```
+
+        Resource and action specific handler:
+        ```python
+        @auth.on.threads.delete
+        async def prevent_thread_deletion(ctx: AuthContext, value: Any) -> bool:
+            # Only admins can delete threads
+            return "admin" in ctx.user.permissions
+        ```
+
+        Multiple resources or actions:
+        ```python
+        @auth.on(resources=["threads", "runs"], actions=["create", "update"])
+        async def rate_limit_writes(ctx: AuthContext, value: Any) -> bool:
+            # Implement rate limiting for write operations
+            return await check_rate_limit(ctx.user.identity)
+        ```
+    """
+
+    __slots__ = (
+        "_auth",
+        "assistants",
+        "threads",
+        "runs",
+        "crons",
+        "store",
+        "value",
+    )
+
+    def __init__(self, auth: Auth) -> None:
+        self._auth = auth
+        self.assistants = _AssistantsOn(auth, "assistants")
+        self.threads = _ThreadsOn(auth, "threads")
+        self.crons = _CronsOn(auth, "crons")
+        self.store = _StoreOn(auth)
+        self.value = dict[str, typing.Any]
+
+    @typing.overload
+    def __call__(
+        self,
+        *,
+        resources: typing.Union[str, Sequence[str]],
+        actions: typing.Optional[typing.Union[str, Sequence[str]]] = None,
+    ) -> Callable[[AHO], AHO]: ...
+
+    @typing.overload
+    def __call__(self, fn: AHO) -> AHO: ...
+
+    def __call__(
+        self,
+        fn: typing.Optional[AHO] = None,
+        *,
+        resources: typing.Union[str, Sequence[str], None] = None,
+        actions: typing.Optional[typing.Union[str, Sequence[str]]] = None,
+    ) -> typing.Union[AHO, Callable[[AHO], AHO]]:
+        """Register a handler for specific resources and actions.
+
+        Can be used as a decorator or with explicit resource/action parameters:
+
+        @auth.on
+        async def handler(): ...  # Global handler
+
+        @auth.on(resources="threads")
+        async def handler(): ...  # types.Handler for all thread actions
+
+        @auth.on(resources="threads", actions="create")
+        async def handler(): ...  # types.Handler for thread creation
+        """
+        if fn is not None:
+            # Used as a plain decorator
+            _register_handler(self._auth, None, None, fn)
+            return fn
+
+        # Used with parameters, return a decorator
+        def decorator(
+            handler: AHO,
+        ) -> AHO:
+            if isinstance(resources, str):
+                resource_list = [resources]
+            else:
+                resource_list = list(resources) if resources is not None else ["*"]
+
+            if isinstance(actions, str):
+                action_list = [actions]
+            else:
+                action_list = list(actions) if actions is not None else ["*"]
+            for resource in resource_list:
+                for action in action_list:
+                    _register_handler(self._auth, resource, action, handler)
+            return handler
+
+        return decorator

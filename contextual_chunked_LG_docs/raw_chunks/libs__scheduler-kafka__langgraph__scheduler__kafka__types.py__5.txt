@@ -1,0 +1,4 @@
+class Sendable(TypedDict):
+    topic: str
+    value: Optional[Any]
+    key: Optional[Any]

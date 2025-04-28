@@ -1,0 +1,134 @@
+def test_invoke_checkpoint_three(
+    mocker: MockerFixture, request: pytest.FixtureRequest, checkpointer_name: str
+) -> None:
+    checkpointer = request.getfixturevalue(f"checkpointer_{checkpointer_name}")
+    adder = mocker.Mock(side_effect=lambda x: x["total"] + x["input"])
+
+    def raise_if_above_10(input: int) -> int:
+        if input > 10:
+            raise ValueError("Input is too large")
+        return input
+
+    one = (
+        Channel.subscribe_to(["input"]).join(["total"])
+        | adder
+        | Channel.write_to("output", "total")
+        | raise_if_above_10
+    )
+
+    app = Pregel(
+        nodes={"one": one},
+        channels={
+            "total": BinaryOperatorAggregate(int, operator.add),
+            "input": LastValue(int),
+            "output": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+        checkpointer=checkpointer,
+    )
+
+    thread_1 = {"configurable": {"thread_id": "1"}}
+    # total starts out as 0, so output is 0+2=2
+    assert app.invoke(2, thread_1, debug=1) == 2
+    state = app.get_state(thread_1)
+    assert state is not None
+    assert state.values.get("total") == 2
+    assert state.next == ()
+    assert (
+        state.config["configurable"]["checkpoint_id"]
+        == checkpointer.get(thread_1)["id"]
+    )
+    # total is now 2, so output is 2+3=5
+    assert app.invoke(3, thread_1) == 5
+    state = app.get_state(thread_1)
+    assert state is not None
+    assert state.values.get("total") == 7
+    assert (
+        state.config["configurable"]["checkpoint_id"]
+        == checkpointer.get(thread_1)["id"]
+    )
+    # total is now 2+5=7, so output would be 7+4=11, but raises ValueError
+    with pytest.raises(ValueError):
+        app.invoke(4, thread_1)
+    # checkpoint is updated with new input
+    state = app.get_state(thread_1)
+    assert state is not None
+    assert state.values.get("total") == 7
+    assert state.next == ("one",)
+    """we checkpoint inputs and it failed on "one", so the next node is one"""
+    # we can recover from error by sending new inputs
+    assert app.invoke(2, thread_1) == 9
+    state = app.get_state(thread_1)
+    assert state is not None
+    assert state.values.get("total") == 16, "total is now 7+9=16"
+    assert state.next == ()
+
+    thread_2 = {"configurable": {"thread_id": "2"}}
+    # on a new thread, total starts out as 0, so output is 0+5=5
+    assert app.invoke(5, thread_2, debug=True) == 5
+    state = app.get_state({"configurable": {"thread_id": "1"}})
+    assert state is not None
+    assert state.values.get("total") == 16
+    assert state.next == (), "checkpoint of other thread not touched"
+    state = app.get_state(thread_2)
+    assert state is not None
+    assert state.values.get("total") == 5
+    assert state.next == ()
+
+    if "shallow" in checkpointer_name:
+        return
+
+    assert len(list(app.get_state_history(thread_1, limit=1))) == 1
+    # list all checkpoints for thread 1
+    thread_1_history = [c for c in app.get_state_history(thread_1)]
+    # there are 7 checkpoints
+    assert len(thread_1_history) == 7
+    assert Counter(c.metadata["source"] for c in thread_1_history) == {
+        "input": 4,
+        "loop": 3,
+    }
+    # sorted descending
+    assert (
+        thread_1_history[0].config["configurable"]["checkpoint_id"]
+        > thread_1_history[1].config["configurable"]["checkpoint_id"]
+    )
+    # cursor pagination
+    cursored = list(
+        app.get_state_history(thread_1, limit=1, before=thread_1_history[0].config)
+    )
+    assert len(cursored) == 1
+    assert cursored[0].config == thread_1_history[1].config
+    # the last checkpoint
+    assert thread_1_history[0].values["total"] == 16
+    # the first "loop" checkpoint
+    assert thread_1_history[-2].values["total"] == 2
+    # can get each checkpoint using aget with config
+    assert (
+        checkpointer.get(thread_1_history[0].config)["id"]
+        == thread_1_history[0].config["configurable"]["checkpoint_id"]
+    )
+    assert (
+        checkpointer.get(thread_1_history[1].config)["id"]
+        == thread_1_history[1].config["configurable"]["checkpoint_id"]
+    )
+
+    thread_1_next_config = app.update_state(thread_1_history[1].config, 10)
+    # update creates a new checkpoint
+    assert (
+        thread_1_next_config["configurable"]["checkpoint_id"]
+        > thread_1_history[0].config["configurable"]["checkpoint_id"]
+    )
+    # update makes new checkpoint child of the previous one
+    assert (
+        app.get_state(thread_1_next_config).parent_config == thread_1_history[1].config
+    )
+    # 1 more checkpoint in history
+    assert len(list(app.get_state_history(thread_1))) == 8
+    assert Counter(c.metadata["source"] for c in app.get_state_history(thread_1)) == {
+        "update": 1,
+        "input": 4,
+        "loop": 3,
+    }
+    # the latest checkpoint is the updated one
+    assert app.get_state(thread_1) == app.get_state(thread_1_next_config)

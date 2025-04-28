@@ -1,0 +1,3 @@
+class _InjectStateSchema(TypedDict):
+    messages: list
+    foo: str

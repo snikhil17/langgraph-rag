@@ -1,0 +1,10 @@
+def _warn_invalid_state_schema(schema: Union[type[Any], Any]) -> None:
+    if isinstance(schema, type):
+        return
+    if typing.get_args(schema):
+        return
+    warnings.warn(
+        f"Invalid state_schema: {schema}. Expected a type or Annotated[type, reducer]. "
+        "Please provide a valid schema to ensure correct updates.\n"
+        " See: https://langchain-ai.github.io/langgraph/reference/graphs/#stategraph"
+    )

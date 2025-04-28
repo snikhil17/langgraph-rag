@@ -1,0 +1,7 @@
+def find_classes(tree: ast.AST) -> List[Tuple[str, List[str]]]:
+    classes = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            methods = get_class_methods(node)
+            classes.append((node.name, methods))
+    return classes

@@ -1,0 +1,6 @@
+"""Create a human message with an any id field."""
+def _AnyIdHumanMessage(**kwargs: Any) -> HumanMessage:
+
+    message = HumanMessage(**kwargs)
+    message.id = AnyStr()
+    return message

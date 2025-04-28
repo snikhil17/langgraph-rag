@@ -1,0 +1,9 @@
+class ResolvedPackage(TypedDict):
+    name: str
+    """The name of the package."""
+    repo: str
+    """Repository ID within github. Format is: [orgname]/[repo_name]."""
+    weekly_downloads: int | None
+    """The weekly download count of the package."""
+    description: str
+    """A brief description of what the package does."""

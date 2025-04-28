@@ -1,0 +1,160 @@
+class AsyncPregelLoop(PregelLoop, AbstractAsyncContextManager):
+    def __init__(
+        self,
+        input: Optional[Any],
+        *,
+        stream: Optional[StreamProtocol],
+        config: RunnableConfig,
+        store: Optional[BaseStore],
+        checkpointer: Optional[BaseCheckpointSaver],
+        nodes: Mapping[str, PregelNode],
+        specs: Mapping[str, Union[BaseChannel, ManagedValueSpec]],
+        interrupt_after: Union[All, Sequence[str]] = EMPTY_SEQ,
+        interrupt_before: Union[All, Sequence[str]] = EMPTY_SEQ,
+        manager: Union[None, AsyncParentRunManager, ParentRunManager] = None,
+        output_keys: Union[str, Sequence[str]] = EMPTY_SEQ,
+        stream_keys: Union[str, Sequence[str]] = EMPTY_SEQ,
+        input_model: Optional[type[BaseModel]] = None,
+        debug: bool = False,
+        migrate_checkpoint: Optional[Callable[[Checkpoint], None]] = None,
+        trigger_to_nodes: Optional[Mapping[str, Sequence[str]]] = None,
+        checkpoint_during: bool = True,
+    ) -> None:
+        super().__init__(
+            input,
+            input_model=input_model,
+            stream=stream,
+            config=config,
+            checkpointer=checkpointer,
+            store=store,
+            nodes=nodes,
+            specs=specs,
+            output_keys=output_keys,
+            stream_keys=stream_keys,
+            interrupt_after=interrupt_after,
+            interrupt_before=interrupt_before,
+            manager=manager,
+            debug=debug,
+            migrate_checkpoint=migrate_checkpoint,
+            trigger_to_nodes=trigger_to_nodes,
+            checkpoint_during=checkpoint_during,
+        )
+        self.stack = AsyncExitStack()
+        if checkpointer:
+            self.checkpointer_get_next_version = checkpointer.get_next_version
+            self.checkpointer_put_writes = checkpointer.aput_writes
+            self.checkpointer_put_writes_accepts_task_path = (
+                signature(checkpointer.aput_writes).parameters.get("task_path")
+                is not None
+            )
+        else:
+            self.checkpointer_get_next_version = increment
+            self._checkpointer_put_after_previous = None  # type: ignore[assignment]
+            self.checkpointer_put_writes = None
+            self.checkpointer_put_writes_accepts_task_path = False
+
+    async def _checkpointer_put_after_previous(
+        self,
+        prev: Optional[asyncio.Task],
+        config: RunnableConfig,
+        checkpoint: Checkpoint,
+        metadata: CheckpointMetadata,
+        new_versions: ChannelVersions,
+    ) -> RunnableConfig:
+        try:
+            if prev is not None:
+                await prev
+        finally:
+            await cast(BaseCheckpointSaver, self.checkpointer).aput(
+                config, checkpoint, metadata, new_versions
+            )
+
+    def _update_mv(self, key: str, values: Sequence[Any]) -> None:
+        managed_value = self.managed.get(key)
+        if managed_value is None:
+            return
+
+        return self.submit(cast(WritableManagedValue, managed_value).aupdate, values)
+
+    # context manager
+
+    async def __aenter__(self) -> Self:
+        if self.config.get(CONF, {}).get(
+            CONFIG_KEY_ENSURE_LATEST
+        ) and self.checkpoint_config[CONF].get(CONFIG_KEY_CHECKPOINT_ID):
+            if self.checkpointer is None:
+                raise RuntimeError(
+                    "Cannot ensure latest checkpoint without checkpointer"
+                )
+            saved = await self.checkpointer.aget_tuple(
+                patch_configurable(
+                    self.checkpoint_config, {CONFIG_KEY_CHECKPOINT_ID: None}
+                )
+            )
+            if (
+                saved is None
+                or saved.checkpoint["id"]
+                != self.checkpoint_config[CONF][CONFIG_KEY_CHECKPOINT_ID]
+            ):
+                raise CheckpointNotLatest
+        elif self.checkpointer:
+            saved = await self.checkpointer.aget_tuple(self.checkpoint_config)
+        else:
+            saved = None
+        if saved is None:
+            saved = CheckpointTuple(
+                self.checkpoint_config, empty_checkpoint(), {"step": -2}, None, []
+            )
+        elif self._migrate_checkpoint is not None:
+            self._migrate_checkpoint(saved.checkpoint)
+        self.checkpoint_config = {
+            **self.checkpoint_config,
+            **saved.config,
+            CONF: {
+                CONFIG_KEY_CHECKPOINT_NS: "",
+                **self.checkpoint_config.get(CONF, {}),
+                **saved.config.get(CONF, {}),
+            },
+        }
+        self.prev_checkpoint_config = saved.parent_config
+        self.checkpoint_id_saved = saved.checkpoint["id"]
+        self.checkpoint = saved.checkpoint
+        self.checkpoint_metadata = saved.metadata
+        self.checkpoint_pending_writes = (
+            [(str(tid), k, v) for tid, k, v in saved.pending_writes]
+            if saved.pending_writes is not None
+            else []
+        )
+
+        self.submit = await self.stack.enter_async_context(
+            AsyncBackgroundExecutor(self.config)
+        )
+        self.channels, self.managed = await self.stack.enter_async_context(
+            AsyncChannelsManager(self.specs, self.checkpoint, self)
+        )
+        self.stack.push(self._suppress_interrupt)
+        self.status = "pending"
+        self.step = self.checkpoint_metadata["step"] + 1
+        self.stop = self.step + self.config["recursion_limit"] + 1
+
+        self.checkpoint_previous_versions = self.checkpoint["channel_versions"].copy()
+
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> Optional[bool]:
+        # unwind stack
+        exit_task = asyncio.create_task(
+            self.stack.__aexit__(exc_type, exc_value, traceback)
+        )
+        try:
+            return await exit_task
+        except asyncio.CancelledError as e:
+            # Bubble up the exit task upon cancellation to permit the API
+            # consumer to await it before e.g., reusing the DB connection.
+            e.args = (*e.args, exit_task)
+            raise

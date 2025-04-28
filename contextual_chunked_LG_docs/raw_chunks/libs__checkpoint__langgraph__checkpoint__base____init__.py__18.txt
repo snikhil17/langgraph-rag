@@ -1,0 +1,9 @@
+"""A tuple containing a checkpoint and its associated data."""
+class CheckpointTuple(NamedTuple):
+
+
+    config: RunnableConfig
+    checkpoint: Checkpoint
+    metadata: CheckpointMetadata
+    parent_config: Optional[RunnableConfig] = None
+    pending_writes: Optional[List[PendingWrite]] = None

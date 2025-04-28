@@ -1,0 +1,5 @@
+def _coerce_to_message(assistant_output: str | BaseMessage):
+    if isinstance(assistant_output, str):
+        return {"messages": [AIMessage(content=assistant_output)]}
+    else:
+        return {"messages": [assistant_output]}

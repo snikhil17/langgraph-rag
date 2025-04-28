@@ -1,0 +1,37 @@
+"""Manage channels for the lifetime of a Pregel invocation (multiple steps)."""
+def ChannelsManager(
+    specs: Mapping[str, Union[BaseChannel, ManagedValueSpec]],
+    checkpoint: Checkpoint,
+    loop: LoopProtocol,
+    *,
+    skip_context: bool = False,
+) -> Iterator[tuple[Mapping[str, BaseChannel], ManagedValueMapping]]:
+
+    channel_specs: dict[str, BaseChannel] = {}
+    managed_specs: dict[str, ManagedValueSpec] = {}
+    for k, v in specs.items():
+        if isinstance(v, BaseChannel):
+            channel_specs[k] = v
+        elif (
+            skip_context and isinstance(v, ConfiguredManagedValue) and v.cls is Context
+        ):
+            managed_specs[k] = Context.of(noop_context)
+        else:
+            managed_specs[k] = v
+    with ExitStack() as stack:
+        yield (
+            {
+                k: v.from_checkpoint(checkpoint["channel_values"].get(k, MISSING))
+                for k, v in channel_specs.items()
+            },
+            ManagedValueMapping(
+                {
+                    key: stack.enter_context(
+                        value.cls.enter(loop, **value.kwargs)
+                        if isinstance(value, ConfiguredManagedValue)
+                        else value.enter(loop)
+                    )
+                    for key, value in managed_specs.items()
+                }
+            ),
+        )

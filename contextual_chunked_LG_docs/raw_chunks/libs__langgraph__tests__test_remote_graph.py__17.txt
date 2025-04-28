@@ -1,0 +1,29 @@
+def test_update_state():
+    # set up test
+    mock_sync_client = MagicMock()
+    mock_sync_client.threads.update_state.return_value = {
+        "checkpoint": {
+            "thread_id": "thread_1",
+            "checkpoint_ns": "ns",
+            "checkpoint_id": "checkpoint_1",
+            "checkpoint_map": {},
+        }
+    }
+
+    # call method / assertions
+    remote_pregel = RemoteGraph(
+        "test_graph_id",
+        sync_client=mock_sync_client,
+    )
+
+    config = {"configurable": {"thread_id": "thread1"}}
+    response = remote_pregel.update_state(config, {"key": "value"})
+
+    assert response == {
+        "configurable": {
+            "thread_id": "thread_1",
+            "checkpoint_ns": "ns",
+            "checkpoint_id": "checkpoint_1",
+            "checkpoint_map": {},
+        }
+    }

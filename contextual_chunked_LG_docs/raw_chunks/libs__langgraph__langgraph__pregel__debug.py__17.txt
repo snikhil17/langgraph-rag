@@ -1,0 +1,6 @@
+class TaskResultPayload(TypedDict):
+    id: str
+    name: str
+    error: Optional[str]
+    interrupts: list[dict]
+    result: list[tuple[str, Any]]

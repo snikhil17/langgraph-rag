@@ -1,0 +1,3 @@
+class DebugOutputCheckpoint(DebugOutputBase):
+    type: Literal["checkpoint"]
+    payload: CheckpointPayload

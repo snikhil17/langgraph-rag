@@ -1,0 +1,130 @@
+def test_stream():
+    # set up test
+    mock_sync_client = MagicMock()
+    mock_sync_client.runs.stream.return_value = [
+        StreamPart(event="values", data={"chunk": "data1"}),
+        StreamPart(event="values", data={"chunk": "data2"}),
+        StreamPart(event="values", data={"chunk": "data3"}),
+        StreamPart(event="updates", data={"chunk": "data4"}),
+        StreamPart(
+            event="updates",
+            data={
+                "__interrupt__": [
+                    {
+                        "value": {"question": "Does this look good?"},
+                        "resumable": True,
+                        "ns": ["some_ns"],
+                        "when": "during",
+                    }
+                ]
+            },
+        ),
+    ]
+
+    # call method / assertions
+    remote_pregel = RemoteGraph(
+        "test_graph_id",
+        sync_client=mock_sync_client,
+    )
+
+    # test raising graph interrupt if invoked as a subgraph
+    with pytest.raises(GraphInterrupt) as exc:
+        for stream_part in remote_pregel.stream(
+            {"input": "data"},
+            # pretend we invoked this as a subgraph
+            config={
+                "configurable": {"thread_id": "thread_1", "checkpoint_ns": "some_ns"}
+            },
+            stream_mode="values",
+        ):
+            pass
+
+    assert exc.value.args[0] == [
+        Interrupt(
+            value={"question": "Does this look good?"},
+            resumable=True,
+            ns=["some_ns"],
+            when="during",
+        )
+    ]
+
+    # stream modes doesn't include 'updates'
+    stream_parts = []
+    for stream_part in remote_pregel.stream(
+        {"input": "data"},
+        config={"configurable": {"thread_id": "thread_1"}},
+        stream_mode="values",
+    ):
+        stream_parts.append(stream_part)
+
+    assert stream_parts == [
+        {"chunk": "data1"},
+        {"chunk": "data2"},
+        {"chunk": "data3"},
+    ]
+
+    mock_sync_client.runs.stream.return_value = [
+        StreamPart(event="updates", data={"chunk": "data3"}),
+        StreamPart(event="updates", data={"chunk": "data4"}),
+        StreamPart(event="updates", data={"__interrupt__": ()}),
+    ]
+
+    # default stream_mode is updates
+    stream_parts = []
+    for stream_part in remote_pregel.stream(
+        {"input": "data"},
+        config={"configurable": {"thread_id": "thread_1"}},
+    ):
+        stream_parts.append(stream_part)
+
+    assert stream_parts == [
+        {"chunk": "data3"},
+        {"chunk": "data4"},
+        {"__interrupt__": ()},
+    ]
+
+    # list stream_mode includes mode names
+    stream_parts = []
+    for stream_part in remote_pregel.stream(
+        {"input": "data"},
+        config={"configurable": {"thread_id": "thread_1"}},
+        stream_mode=["updates"],
+    ):
+        stream_parts.append(stream_part)
+
+    assert stream_parts == [
+        ("updates", {"chunk": "data3"}),
+        ("updates", {"chunk": "data4"}),
+        ("updates", {"__interrupt__": ()}),
+    ]
+
+    # subgraphs + list modes
+    stream_parts = []
+    for stream_part in remote_pregel.stream(
+        {"input": "data"},
+        config={"configurable": {"thread_id": "thread_1"}},
+        stream_mode=["updates"],
+        subgraphs=True,
+    ):
+        stream_parts.append(stream_part)
+
+    assert stream_parts == [
+        ((), "updates", {"chunk": "data3"}),
+        ((), "updates", {"chunk": "data4"}),
+        ((), "updates", {"__interrupt__": ()}),
+    ]
+
+    # subgraphs + single mode
+    stream_parts = []
+    for stream_part in remote_pregel.stream(
+        {"input": "data"},
+        config={"configurable": {"thread_id": "thread_1"}},
+        subgraphs=True,
+    ):
+        stream_parts.append(stream_part)
+
+    assert stream_parts == [
+        ((), {"chunk": "data3"}),
+        ((), {"chunk": "data4"}),
+        ((), {"__interrupt__": ()}),
+    ]

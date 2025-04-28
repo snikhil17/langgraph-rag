@@ -1,0 +1,21 @@
+def test_list_namespaces_max_depth() -> None:
+    store = InMemoryStore()
+
+    namespaces = [
+        ("a", "b", "c", "d"),
+        ("a", "b", "c", "e"),
+        ("a", "b", "f"),
+        ("a", "g"),
+        ("h", "i", "j", "k"),
+    ]
+
+    for i, ns in enumerate(namespaces):
+        store.put(namespace=ns, key=f"id_{i}", value={"data": f"value_{i:02d}"})
+
+    result = store.list_namespaces(max_depth=2)
+    expected = [
+        ("a", "b"),
+        ("a", "g"),
+        ("h", "i"),
+    ]
+    assert sorted(result) == sorted(expected)

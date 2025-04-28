@@ -1,0 +1,6 @@
+def add_messages(left, right):
+    if not isinstance(left, list):
+        left = [left]
+    if not isinstance(right, list):
+        right = [right]
+    return left + right

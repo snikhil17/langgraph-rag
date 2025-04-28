@@ -1,0 +1,5 @@
+def test_passing_two_modifiers():
+    model = FakeToolCallingModel()
+
+    with pytest.raises(ValueError):
+        create_react_agent(model, [], state_modifier="Foo", prompt="Bar")

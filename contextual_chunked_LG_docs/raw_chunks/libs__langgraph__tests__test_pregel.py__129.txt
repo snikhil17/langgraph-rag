@@ -1,0 +1,52 @@
+def test_interrupt_multiple(request: pytest.FixtureRequest, checkpointer_name: str):
+    checkpointer = request.getfixturevalue(f"checkpointer_{checkpointer_name}")
+
+    class State(TypedDict):
+        my_key: Annotated[str, operator.add]
+
+    def node(s: State) -> State:
+        answer = interrupt({"value": 1})
+        answer2 = interrupt({"value": 2})
+        return {"my_key": answer + " " + answer2}
+
+    builder = StateGraph(State)
+    builder.add_node("node", node)
+    builder.add_edge(START, "node")
+
+    graph = builder.compile(checkpointer=checkpointer)
+    thread1 = {"configurable": {"thread_id": "1"}}
+
+    assert [e for e in graph.stream({"my_key": "DE", "market": "DE"}, thread1)] == [
+        {
+            "__interrupt__": (
+                Interrupt(
+                    value={"value": 1},
+                    resumable=True,
+                    ns=[AnyStr("node:")],
+                    when="during",
+                ),
+            )
+        }
+    ]
+
+    assert [
+        event
+        for event in graph.stream(
+            Command(resume="answer 1", update={"my_key": "foofoo"}), thread1
+        )
+    ] == [
+        {
+            "__interrupt__": (
+                Interrupt(
+                    value={"value": 2},
+                    resumable=True,
+                    ns=[AnyStr("node:")],
+                    when="during",
+                ),
+            )
+        }
+    ]
+
+    assert [event for event in graph.stream(Command(resume="answer 2"), thread1)] == [
+        {"node": {"my_key": "answer 1 answer 2"}},
+    ]

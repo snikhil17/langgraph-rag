@@ -1,0 +1,70 @@
+def test_invoke_checkpoint_two(
+    mocker: MockerFixture, request: pytest.FixtureRequest, checkpointer_name: str
+) -> None:
+    checkpointer: BaseCheckpointSaver = request.getfixturevalue(
+        f"checkpointer_{checkpointer_name}"
+    )
+    add_one = mocker.Mock(side_effect=lambda x: x["total"] + x["input"])
+    errored_once = False
+
+    def raise_if_above_10(input: int) -> int:
+        nonlocal errored_once
+        if input > 4:
+            if errored_once:
+                pass
+            else:
+                errored_once = True
+                raise ConnectionError("I will be retried")
+        if input > 10:
+            raise ValueError("Input is too large")
+        return input
+
+    one = (
+        Channel.subscribe_to(["input"]).join(["total"])
+        | add_one
+        | Channel.write_to("output", "total")
+        | raise_if_above_10
+    )
+
+    app = Pregel(
+        nodes={"one": one},
+        channels={
+            "total": BinaryOperatorAggregate(int, operator.add),
+            "input": LastValue(int),
+            "output": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+        checkpointer=checkpointer,
+        retry_policy=RetryPolicy(),
+    )
+
+    # total starts out as 0, so output is 0+2=2
+    assert app.invoke(2, {"configurable": {"thread_id": "1"}}) == 2
+    checkpoint = checkpointer.get({"configurable": {"thread_id": "1"}})
+    assert checkpoint is not None
+    assert checkpoint["channel_values"].get("total") == 2
+    # total is now 2, so output is 2+3=5
+    assert app.invoke(3, {"configurable": {"thread_id": "1"}}) == 5
+    assert errored_once, "errored and retried"
+    checkpoint_tup = checkpointer.get_tuple({"configurable": {"thread_id": "1"}})
+    assert checkpoint_tup is not None
+    assert checkpoint_tup.checkpoint["channel_values"].get("total") == 7
+    # total is now 2+5=7, so output would be 7+4=11, but raises ValueError
+    with pytest.raises(ValueError):
+        app.invoke(4, {"configurable": {"thread_id": "1"}})
+    # checkpoint is not updated, error is recorded
+    checkpoint_tup = checkpointer.get_tuple({"configurable": {"thread_id": "1"}})
+    assert checkpoint_tup is not None
+    assert checkpoint_tup.checkpoint["channel_values"].get("total") == 7
+    assert checkpoint_tup.pending_writes == [
+        (AnyStr(), ERROR, "ValueError('Input is too large')")
+    ]
+    # on a new thread, total starts out as 0, so output is 0+5=5
+    assert app.invoke(5, {"configurable": {"thread_id": "2"}}) == 5
+    checkpoint = checkpointer.get({"configurable": {"thread_id": "1"}})
+    assert checkpoint is not None
+    assert checkpoint["channel_values"].get("total") == 7
+    checkpoint = checkpointer.get({"configurable": {"thread_id": "2"}})
+    assert checkpoint is not None
+    assert checkpoint["channel_values"].get("total") == 5

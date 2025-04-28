@@ -1,0 +1,3 @@
+class MyModel(BaseModel):
+    some_val: int
+    some_other_val: str

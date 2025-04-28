@@ -1,0 +1,16 @@
+"""Add an edge to the graph."""
+def add_edge(
+    graph: Graph,
+    source: str,
+    target: str,
+    *,
+    data: Optional[Any] = None,
+    conditional: bool = False,
+) -> None:
+
+    for edge in graph.edges:
+        if edge.source == source and edge.target == target:
+            return
+    if target not in graph.nodes and target == END:
+        graph.add_node(None, END)
+    graph.add_edge(graph.nodes[source], graph.nodes[target], data, conditional)

@@ -1,0 +1,10 @@
+class SubSection(BaseModel):
+    subsection_title: str = Field(..., title="Title of the subsection")
+    content: str = Field(
+        ...,
+        title="Full content of the subsection. Include [#] citations to the cited sources where relevant.",
+    )
+
+    @property
+    def as_str(self) -> str:
+        return f"### {self.subsection_title}\n\n{self.content}".strip()

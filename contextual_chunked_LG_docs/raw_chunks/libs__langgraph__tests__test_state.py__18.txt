@@ -1,0 +1,46 @@
+def test_state_schema_default_values(kw_only_: bool):
+    kwargs = {}
+    if "kw_only" in inspect.signature(dataclass).parameters:
+        kwargs = {"kw_only": kw_only_}
+
+    @dataclass(**kwargs)
+    class InputState:
+        val1: str
+        val2: Optional[int]
+        val3: Annotated[Optional[float], "optional annotated"]
+        val4: Optional[str] = None
+        val5: list[int] = field(default_factory=lambda: [1, 2, 3])
+        val6: dict[str, int] = field(default_factory=lambda: {"a": 1})
+        val7: str = field(default=...)
+        val8: Annotated[int, "some metadata"] = 42
+        val9: Annotated[str, "more metadata"] = field(default="some foo")
+        val10: str = "default"
+        val11: Annotated[list[str], "annotated list"] = field(
+            default_factory=lambda: ["a", "b"]
+        )
+        some_shared_channel: Annotated[str, SharedValue.on("assistant_id")] = field(
+            default="foo"
+        )
+
+    builder = StateGraph(InputState)
+    builder.add_node("n", lambda x: x)
+    builder.add_edge("__start__", "n")
+    graph = builder.compile()
+    for json_schema in [graph.get_input_jsonschema(), graph.get_output_jsonschema()]:
+        expected_required = {"val1", "val7"}
+        expected_optional = {
+            "val2",
+            "val3",
+            "val4",
+            "val5",
+            "val6",
+            "val8",
+            "val9",
+            "val10",
+            "val11",
+        }
+
+    assert set(json_schema.get("required", set())) == expected_required
+    assert (
+        set(json_schema["properties"].keys()) == expected_required | expected_optional
+    )

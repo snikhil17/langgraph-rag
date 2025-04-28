@@ -1,0 +1,26 @@
+def test_tool_node_individual_tool_error_handling():
+    # test error handling on individual tools (and that it overrides overall error handling!)
+    result_individual_tool_error_handler = ToolNode(
+        [tool5], handle_tool_errors="bar"
+    ).invoke(
+        {
+            "messages": [
+                AIMessage(
+                    "hi?",
+                    tool_calls=[
+                        {
+                            "name": "tool5",
+                            "args": {"some_val": 0},
+                            "id": "some 0",
+                        }
+                    ],
+                )
+            ]
+        }
+    )
+
+    tool_message: ToolMessage = result_individual_tool_error_handler["messages"][-1]
+    assert tool_message.type == "tool"
+    assert tool_message.status == "error"
+    assert tool_message.content == "foo"
+    assert tool_message.tool_call_id == "some 0"

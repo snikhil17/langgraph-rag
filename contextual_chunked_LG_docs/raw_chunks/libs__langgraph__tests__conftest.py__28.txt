@@ -1,0 +1,6 @@
+def checkpointer_sqlite_aes():
+    with SqliteSaver.from_conn_string(":memory:") as checkpointer:
+        checkpointer.serde = EncryptedSerializer.from_pycryptodome_aes(
+            key=b"1234567890123456"
+        )
+        yield checkpointer

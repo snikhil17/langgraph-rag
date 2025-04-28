@@ -1,0 +1,32 @@
+"""Compute cosine similarity between a vector X and a matrix Y.
+Lazy import numpy for efficiency."""
+def _cosine_similarity(X: list[float], Y: list[list[float]]) -> list[float]:
+    """
+    Compute cosine similarity between a vector X and a matrix Y.
+    Lazy import numpy for efficiency.
+    """
+    if not Y:
+        return []
+    if _check_numpy():
+        import numpy as np  # type: ignore[import-not-found]
+
+        X_arr = np.array(X) if not isinstance(X, np.ndarray) else X
+        Y_arr = np.array(Y) if not isinstance(Y, np.ndarray) else Y
+        X_norm = np.linalg.norm(X_arr)
+        Y_norm = np.linalg.norm(Y_arr, axis=1)
+
+        # Avoid division by zero
+        mask = Y_norm != 0
+        similarities = np.zeros_like(Y_norm)
+        similarities[mask] = np.dot(Y_arr[mask], X_arr) / (Y_norm[mask] * X_norm)
+        return similarities.tolist()
+
+    similarities = []
+    for y in Y:
+        dot_product = sum(a * b for a, b in zip(X, y))
+        norm1 = sum(a * a for a in X) ** 0.5
+        norm2 = sum(a * a for a in y) ** 0.5
+        similarity = dot_product / (norm1 * norm2) if norm1 > 0 and norm2 > 0 else 0.0
+        similarities.append(similarity)
+
+    return similarities

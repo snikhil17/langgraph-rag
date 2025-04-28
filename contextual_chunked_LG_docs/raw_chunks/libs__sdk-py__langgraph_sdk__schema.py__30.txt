@@ -1,0 +1,5 @@
+"""Represents a specific version of an assistant."""
+class AssistantVersion(AssistantBase):
+
+
+    pass

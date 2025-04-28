@@ -1,0 +1,41 @@
+def test_conditional_entrypoint_to_multiple_state_graph(
+    snapshot: SnapshotAssertion,
+) -> None:
+    class OverallState(TypedDict):
+        locations: list[str]
+        results: Annotated[list[str], operator.add]
+
+    def get_weather(state: OverallState) -> OverallState:
+        location = state["location"]
+        weather = "sunny" if len(location) > 2 else "cloudy"
+        return {"results": [f"It's {weather} in {location}"]}
+
+    def continue_to_weather(state: OverallState) -> list[Send]:
+        return [
+            Send("get_weather", {"location": location})
+            for location in state["locations"]
+        ]
+
+    workflow = StateGraph(OverallState)
+
+    workflow.add_node("get_weather", get_weather)
+    workflow.add_edge("get_weather", END)
+    workflow.set_conditional_entry_point(continue_to_weather, path_map=["get_weather"])
+
+    app = workflow.compile()
+
+    if SHOULD_CHECK_SNAPSHOTS:
+        assert json.dumps(app.get_input_schema().model_json_schema()) == snapshot
+        assert json.dumps(app.get_output_schema().model_json_schema()) == snapshot
+        assert json.dumps(app.get_graph().to_json(), indent=2) == snapshot
+        assert app.get_graph().draw_mermaid(with_styles=False) == snapshot
+
+    assert app.invoke({"locations": ["sf", "nyc"]}, debug=True) == {
+        "locations": ["sf", "nyc"],
+        "results": ["It's cloudy in sf", "It's sunny in nyc"],
+    }
+
+    assert [*app.stream({"locations": ["sf", "nyc"]}, stream_mode="values")][-1] == {
+        "locations": ["sf", "nyc"],
+        "results": ["It's cloudy in sf", "It's sunny in nyc"],
+    }

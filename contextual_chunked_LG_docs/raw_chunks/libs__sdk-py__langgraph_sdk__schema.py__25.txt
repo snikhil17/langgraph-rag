@@ -1,0 +1,22 @@
+"""Configuration options for a call."""
+class Config(TypedDict, total=False):
+
+
+    tags: list[str]
+    """
+    Tags for this call and any sub-calls (eg. a Chain calling an LLM).
+    You can use these to filter calls.
+    """
+
+    recursion_limit: int
+    """
+    Maximum number of times a call can recurse. If not provided, defaults to 25.
+    """
+
+    configurable: dict[str, Any]
+    """
+    Runtime values for attributes previously made configurable on this Runnable,
+    or sub-Runnables, through .configurable_fields() or .configurable_alternatives().
+    Check .output_schema() for a description of the attributes that have been made 
+    configurable.
+    """

@@ -1,0 +1,46 @@
+"""Payload for creating an assistant.
+
+???+ example "Examples"
+    ```python
+    create_params = {
+        "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "graph_id": "graph123",
+        "config": {"key": "value"},
+        "metadata": {"owner": "user123"},
+        "if_exists": "do_nothing",
+        "name": "Assistant 1"
+    }
+    ```"""
+class AssistantsCreate(typing.TypedDict, total=False):
+    """Payload for creating an assistant.
+
+    ???+ example "Examples"
+        ```python
+        create_params = {
+            "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "graph_id": "graph123",
+            "config": {"key": "value"},
+            "metadata": {"owner": "user123"},
+            "if_exists": "do_nothing",
+            "name": "Assistant 1"
+        }
+        ```
+    """
+
+    assistant_id: UUID
+    """Unique identifier for the assistant."""
+
+    graph_id: str
+    """Graph ID to use for this assistant."""
+
+    config: typing.Optional[typing.Union[typing.Dict[str, typing.Any], typing.Any]]
+    """typing.Optional configuration for the assistant."""
+
+    metadata: MetadataInput
+    """typing.Optional metadata to attach to the assistant."""
+
+    if_exists: OnConflictBehavior
+    """Behavior when an assistant with the same ID already exists."""
+
+    name: str
+    """Name of the assistant."""

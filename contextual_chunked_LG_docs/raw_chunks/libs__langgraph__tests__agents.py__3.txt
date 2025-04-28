@@ -1,0 +1,19 @@
+"""Final return value of an ActionAgent.
+
+Agents return an AgentFinish when they have reached a stopping condition."""
+class AgentFinish(BaseModel):
+    """Final return value of an ActionAgent.
+
+    Agents return an AgentFinish when they have reached a stopping condition.
+    """
+
+    return_values: dict
+    log: str
+    type: Literal["AgentFinish"] = "AgentFinish"
+    model_config = {
+        "json_schema_extra": {
+            "description": (
+
+            )
+        }
+    }

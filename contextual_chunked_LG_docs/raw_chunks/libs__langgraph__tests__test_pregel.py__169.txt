@@ -1,0 +1,36 @@
+def test_stream_messages_dedupe_inputs() -> None:
+    from langchain_core.messages import AIMessage
+
+    def call_model(state):
+        return {"messages": AIMessage("hi", id="1")}
+
+    def route(state):
+        return Command(goto="node_2", graph=Command.PARENT)
+
+    subgraph = (
+        StateGraph(MessagesState)
+        .add_node(call_model)
+        .add_node(route)
+        .add_edge(START, "call_model")
+        .add_edge("call_model", "route")
+        .compile()
+    )
+
+    graph = (
+        StateGraph(MessagesState)
+        .add_node("node_1", subgraph)
+        .add_node("node_2", lambda state: state)
+        .add_edge(START, "node_1")
+        .compile()
+    )
+
+    chunks = [
+        chunk
+        for ns, chunk in graph.stream(
+            {"messages": "hi"}, stream_mode="messages", subgraphs=True
+        )
+    ]
+
+    assert len(chunks) == 1
+    assert chunks[0][0] == AIMessage("hi", id="1")
+    assert chunks[0][1]["langgraph_node"] == "call_model"

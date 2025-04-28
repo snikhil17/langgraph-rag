@@ -1,0 +1,51 @@
+"""Determine the default value for a field in a state schema.
+
+This is based on:
+    If TypedDict:
+        - Required/NotRequired
+        - total=False -> everything optional
+    - Type annotation (Optional/Union[None])"""
+def get_field_default(name: str, type_: Any, schema: type[Any]) -> Any:
+    """Determine the default value for a field in a state schema.
+
+    This is based on:
+        If TypedDict:
+            - Required/NotRequired
+            - total=False -> everything optional
+        - Type annotation (Optional/Union[None])
+    """
+    optional_keys = getattr(schema, "__optional_keys__", _DEFAULT_KEYS)
+    irq = _is_required_type(type_)
+    if name in optional_keys:
+        # Either total=False or explicit NotRequired.
+        # No type annotation trumps this.
+        if irq:
+            # Unless it's earlier versions of python & explicit Required
+            return ...
+        return None
+    if irq is not None:
+        if irq:
+            # Handle Required[<type>]
+            # (we already handled NotRequired and total=False)
+            return ...
+        # Handle NotRequired[<type>] for earlier versions of python
+        return None
+    if dataclasses.is_dataclass(schema):
+        field_info = next(
+            (f for f in dataclasses.fields(schema) if f.name == name), None
+        )
+        if field_info:
+            if (
+                field_info.default is not dataclasses.MISSING
+                and field_info.default is not ...
+            ):
+                return field_info.default
+            elif field_info.default_factory is not dataclasses.MISSING:
+                return field_info.default_factory()
+    # Note, we ignore ReadOnly attributes,
+    # as they don't make much sense. (we don't care if you mutate the state in your node)
+    # and mutating state in your node has no effect on our graph state.
+    # Base case is the annotation
+    if _is_optional_type(type_):
+        return None
+    return ...

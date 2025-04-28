@@ -1,0 +1,15 @@
+def _is_field_managed_value(name: str, typ: type[Any]) -> Optional[ManagedValueSpec]:
+    if hasattr(typ, "__metadata__"):
+        meta = typ.__metadata__
+        if len(meta) >= 1:
+            decoration = get_origin(meta[-1]) or meta[-1]
+            if is_managed_value(decoration):
+                if isinstance(decoration, ConfiguredManagedValue):
+                    for k, v in decoration.kwargs.items():
+                        if v is ChannelKeyPlaceholder:
+                            decoration.kwargs[k] = name
+                        if v is ChannelTypePlaceholder:
+                            decoration.kwargs[k] = typ.__origin__
+                return decoration
+
+    return None

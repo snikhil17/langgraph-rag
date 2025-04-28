@@ -1,0 +1,7 @@
+def DuplexStream(*streams: StreamProtocol) -> StreamProtocol:
+    def __call__(value: StreamChunk) -> None:
+        for stream in streams:
+            if value[1] in stream.modes:
+                stream(value)
+
+    return StreamProtocol(__call__, {mode for s in streams for mode in s.modes})

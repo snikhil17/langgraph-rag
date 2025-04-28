@@ -1,0 +1,16 @@
+def _explode_args_trace_inputs(
+    sig: inspect.Signature, input: tuple[tuple[Any, ...], dict[str, Any]]
+) -> dict[str, Any]:
+    args, kwargs = input
+    bound = sig.bind_partial(*args, **kwargs)
+    bound.apply_defaults()
+    arguments = dict(bound.arguments)
+    arguments.pop("self", None)
+    arguments.pop("cls", None)
+    for param_name, param in sig.parameters.items():
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            # Update with the **kwargs, and remove the original entry
+            # This is to help flatten out keyword arguments
+            if param_name in arguments:
+                arguments.update(arguments.pop(param_name))
+    return arguments

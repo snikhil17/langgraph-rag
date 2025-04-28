@@ -1,0 +1,29 @@
+def test_get_stream_writer() -> None:
+    class State(TypedDict):
+        foo: str
+
+    def my_node(state):
+        writer = get_stream_writer()
+        writer("custom!")
+        return state
+
+    graph = StateGraph(State).add_node(my_node).add_edge(START, "my_node").compile()
+    assert list(graph.stream({"foo": "bar"}, stream_mode="custom")) == ["custom!"]
+    assert list(graph.stream({"foo": "bar"}, stream_mode="values")) == [
+        {"foo": "bar"},
+        {"foo": "bar"},
+    ]
+    assert list(graph.stream({"foo": "bar"}, stream_mode=["custom", "updates"])) == [
+        (
+            "custom",
+            "custom!",
+        ),
+        (
+            "updates",
+            {
+                "my_node": {
+                    "foo": "bar",
+                },
+            },
+        ),
+    ]

@@ -1,0 +1,31 @@
+def _on_page_markdown_with_config(
+    markdown: str,
+    page: Page,
+    *,
+    add_api_references: bool = True,
+    remove_base64_images: bool = False,
+    **kwargs: Any,
+) -> str:
+    if DISABLED:
+        return markdown
+
+    if page.file.src_path.endswith(".ipynb"):
+        # logger.info("Processing Jupyter notebook: %s", page.file.src_path)
+        markdown = convert_notebook(page.file.abs_src_path)
+
+    # Append API reference links to code blocks
+    if add_api_references:
+        markdown = update_markdown_with_imports(markdown, page.file.abs_src_path)
+    # Apply highlight comments to code blocks
+    markdown = _highlight_code_blocks(markdown)
+
+    # Add file path as an attribute to code blocks that are executable.
+    # This file path is used to associate fixtures with the executable code
+    # which can be used in CI to test the docs without making network requests.
+    markdown = _add_path_to_code_blocks(markdown, page)
+
+    if remove_base64_images:
+        # Remove base64 encoded images from markdown
+        markdown = re.sub(r"!\[.*?\]\(data:image/[^;]+;base64,[^)]+\)", "", markdown)
+
+    return markdown

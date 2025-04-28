@@ -1,0 +1,5 @@
+"""A function that yields control to other threads before running another function."""
+def next_tick(fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+
+    time.sleep(0)
+    return fn(*args, **kwargs)

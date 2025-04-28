@@ -1,0 +1,8 @@
+"""Generate a UUID from the SHA-1 hash of a namespace and str parts."""
+def _uuid5_str(namespace: bytes, *parts: str) -> str:
+
+
+    sha = sha1(namespace, usedforsecurity=False)
+    sha.update(b"".join(p.encode() for p in parts))
+    hex = sha.hexdigest()
+    return f"{hex[:8]}-{hex[8:12]}-{hex[12:16]}-{hex[16:20]}-{hex[20:32]}"

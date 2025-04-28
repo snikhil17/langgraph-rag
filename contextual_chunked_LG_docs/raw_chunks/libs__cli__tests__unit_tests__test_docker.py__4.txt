@@ -1,0 +1,31 @@
+def test_compose_with_no_debugger_and_custom_db_with_healthcheck():
+    port = 8123
+    custom_postgres_uri = "custom_postgres_uri"
+    actual_compose_str = compose(
+        DEFAULT_DOCKER_CAPABILITIES._replace(healthcheck_start_interval=True),
+        port=port,
+        postgres_uri=custom_postgres_uri,
+    )
+    expected_compose_str = f"""services:
+    langgraph-redis:
+        image: redis:6
+        healthcheck:
+            test: redis-cli ping
+            interval: 5s
+            timeout: 1s
+            retries: 5
+    langgraph-api:
+        ports:
+            - "{port}:8000"
+        depends_on:
+            langgraph-redis:
+                condition: service_healthy
+        environment:
+            REDIS_URI: redis://langgraph-redis:6379
+            POSTGRES_URI: {custom_postgres_uri}
+        healthcheck:
+            test: python /api/healthcheck.py
+            interval: 60s
+            start_interval: 1s
+            start_period: 10s"""
+    assert clean_empty_lines(actual_compose_str) == expected_compose_str

@@ -1,0 +1,10 @@
+"""Test if a given code block is expected to have output."""
+def test_has_output() -> None:
+
+    assert _has_output("print('Hello, world!')") is True
+    assert _has_output("print_stream(some_iterable)") is True
+    assert _has_output("foo.y") is True
+    assert _has_output("display(x)") is False
+    assert _has_output("assert 1 == 1") is False
+    assert _has_output("def foo(): pass") is False
+    assert _has_output("import foobar") is False

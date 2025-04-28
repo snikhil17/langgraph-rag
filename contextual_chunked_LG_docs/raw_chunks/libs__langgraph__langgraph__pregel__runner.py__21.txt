@@ -1,0 +1,15 @@
+"""Check if any task failed, if so, cancel all other tasks.
+GraphInterrupts are not considered failures."""
+def _should_stop_others(
+    done: set[F],
+) -> bool:
+    """Check if any task failed, if so, cancel all other tasks.
+    GraphInterrupts are not considered failures."""
+    for fut in done:
+        if fut.cancelled():
+            continue
+        elif exc := fut.exception():
+            if not isinstance(exc, GraphBubbleUp):
+                return True
+
+    return False

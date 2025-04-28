@@ -1,0 +1,23 @@
+"""Check if an annotation is marked as Required/NotRequired.
+
+Returns:
+    - True if required
+    - False if not required
+    - None if not annotated with either"""
+def _is_required_type(type_: Any) -> Optional[bool]:
+    """Check if an annotation is marked as Required/NotRequired.
+
+    Returns:
+        - True if required
+        - False if not required
+        - None if not annotated with either
+    """
+    origin = get_origin(type_)
+    if origin is Required:
+        return True
+    if origin is NotRequired:
+        return False
+    if origin is Annotated or getattr(origin, "__args__", None):
+        # See https://typing.readthedocs.io/en/latest/spec/typeddict.html#interaction-with-annotated
+        return _is_required_type(type_.__args__[0])
+    return None

@@ -1,0 +1,11 @@
+def config_to_docker(
+    config_path: pathlib.Path,
+    config: Config,
+    base_image: Optional[str] = None,
+) -> tuple[str, dict[str, str]]:
+    base_image = base_image or default_base_image(config)
+
+    if config.get("node_version") and not config.get("python_version"):
+        return node_config_to_docker(config_path, config, base_image)
+
+    return python_config_to_docker(config_path, config, base_image)

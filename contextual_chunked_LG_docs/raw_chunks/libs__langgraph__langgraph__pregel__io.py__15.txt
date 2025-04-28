@@ -1,0 +1,18 @@
+"""Map input chunk to a sequence of pending writes in the form (channel, value)."""
+def map_input(
+    input_channels: Union[str, Sequence[str]],
+    chunk: Optional[Union[dict[str, Any], Any]],
+) -> Iterator[tuple[str, Any]]:
+
+    if chunk is None:
+        return
+    elif isinstance(input_channels, str):
+        yield (input_channels, chunk)
+    else:
+        if not isinstance(chunk, dict):
+            raise TypeError(f"Expected chunk to be a dict, got {type(chunk).__name__}")
+        for k in chunk:
+            if k in input_channels:
+                yield (k, chunk[k])
+            else:
+                logger.warning(f"Input channel {k} not found in {input_channels}")

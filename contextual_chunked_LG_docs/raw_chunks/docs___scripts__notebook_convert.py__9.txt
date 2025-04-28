@@ -1,0 +1,49 @@
+"""Process a code block that uses cell magic.:w
+
+- Lines starting with "%%capture" are ignored.
+- Lines starting with "%pip" are rewritten by removing the leading "%" character.
+- Any other non-empty line causes a NotImplementedError.
+
+Args:
+    code (str): The original code block.
+
+Returns:
+    str: The transformed code block.
+
+Raises:
+    NotImplementedError: If a line doesn't start with either "%%capture" or "%pip"."""
+def _rewrite_cell_magic(code: str) -> str:
+    """Process a code block that uses cell magic.:w
+
+    - Lines starting with "%%capture" are ignored.
+    - Lines starting with "%pip" are rewritten by removing the leading "%" character.
+    - Any other non-empty line causes a NotImplementedError.
+
+    Args:
+        code (str): The original code block.
+
+    Returns:
+        str: The transformed code block.
+
+    Raises:
+        NotImplementedError: If a line doesn't start with either "%%capture" or "%pip".
+    """
+    rewritten_lines = []
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        # Skip empty lines
+        if not stripped:
+            continue
+        # Ignore %%capture lines
+        if stripped.startswith("%%capture"):
+            continue
+        # Rewrite %pip lines by dropping the '%'
+        elif stripped.startswith("%pip"):
+            # Drop the leading '%' character
+            rewritten_lines.append(stripped[1:])
+        # Anything else is not supported
+        else:
+            raise NotImplementedError(f"Unhandled line: {line}")
+
+    return "\n".join(rewritten_lines)

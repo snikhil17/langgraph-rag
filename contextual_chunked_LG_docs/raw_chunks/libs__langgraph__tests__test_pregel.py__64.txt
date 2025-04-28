@@ -1,0 +1,43 @@
+def test_invoke_two_processes_in_out(mocker: MockerFixture) -> None:
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    one = Channel.subscribe_to("input") | add_one | Channel.write_to("inbox")
+    two = Channel.subscribe_to("inbox") | add_one | Channel.write_to("output")
+
+    app = Pregel(
+        nodes={"one": one, "two": two},
+        channels={
+            "inbox": LastValue(int),
+            "output": LastValue(int),
+            "input": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+    )
+
+    assert app.invoke(2) == 4
+
+    with pytest.raises(GraphRecursionError):
+        app.invoke(2, {"recursion_limit": 1}, debug=1)
+
+    graph = Graph()
+    graph.add_node("add_one", add_one)
+    graph.add_node("add_one_more", add_one)
+    graph.set_entry_point("add_one")
+    graph.set_finish_point("add_one_more")
+    graph.add_edge("add_one", "add_one_more")
+    gapp = graph.compile()
+
+    assert gapp.invoke(2) == 4
+
+    for step, values in enumerate(gapp.stream(2, debug=1), start=1):
+        if step == 1:
+            assert values == {
+                "add_one": 3,
+            }
+        elif step == 2:
+            assert values == {
+                "add_one_more": 4,
+            }
+        else:
+            assert 0, f"{step}:{values}"
+    assert step == 2

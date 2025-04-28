@@ -1,0 +1,14 @@
+def _format_messages(messages: Sequence[BaseMessage]) -> list[BaseMessage]:
+    try:
+        from langchain_core.messages import convert_to_openai_messages
+    except ImportError:
+        msg = (
+            "Must have langchain-core>=0.3.11 installed to use automatic message "
+            "formatting (format='langchain-openai'). Please update your langchain-core "
+            "version or remove the 'format' flag. Returning un-formatted "
+            "messages."
+        )
+        warnings.warn(msg)
+        return list(messages)
+    else:
+        return convert_to_messages(convert_to_openai_messages(messages))

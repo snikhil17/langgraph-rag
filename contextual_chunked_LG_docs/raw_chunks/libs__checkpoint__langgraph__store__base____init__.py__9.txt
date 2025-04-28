@@ -1,0 +1,75 @@
+"""Represents a stored item with metadata.
+
+Args:
+    value (dict[str, Any]): The stored data as a dictionary. Keys are filterable.
+    key (str): Unique identifier within the namespace.
+    namespace (tuple[str, ...]): Hierarchical path defining the collection in which this document resides.
+        Represented as a tuple of strings, allowing for nested categorization.
+        For example: ("documents", 'user123')
+    created_at (datetime): Timestamp of item creation.
+    updated_at (datetime): Timestamp of last update."""
+class Item:
+    """Represents a stored item with metadata.
+
+    Args:
+        value (dict[str, Any]): The stored data as a dictionary. Keys are filterable.
+        key (str): Unique identifier within the namespace.
+        namespace (tuple[str, ...]): Hierarchical path defining the collection in which this document resides.
+            Represented as a tuple of strings, allowing for nested categorization.
+            For example: ("documents", 'user123')
+        created_at (datetime): Timestamp of item creation.
+        updated_at (datetime): Timestamp of last update.
+    """
+
+    __slots__ = ("value", "key", "namespace", "created_at", "updated_at")
+
+    def __init__(
+        self,
+        *,
+        value: dict[str, Any],
+        key: str,
+        namespace: tuple[str, ...],
+        created_at: datetime,
+        updated_at: datetime,
+    ):
+        self.value = value
+        self.key = key
+        # The casting from json-like types is for if this object is
+        # deserialized.
+        self.namespace = tuple(namespace)
+        self.created_at = (
+            datetime.fromisoformat(cast(str, created_at))
+            if isinstance(created_at, str)
+            else created_at
+        )
+        self.updated_at = (
+            datetime.fromisoformat(cast(str, updated_at))
+            if isinstance(updated_at, str)
+            else updated_at
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Item):
+            return False
+        return (
+            self.value == other.value
+            and self.key == other.key
+            and self.namespace == other.namespace
+            and self.created_at == other.created_at
+            and self.updated_at == other.updated_at
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.namespace, self.key))
+
+    def dict(self) -> dict:
+        return {
+            "namespace": list(self.namespace),
+            "key": self.key,
+            "value": self.value,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+    def __repr__(self) -> str:
+        return f"Item({', '.join(f'{k}={v!r}' for k, v in self.dict().items())})"

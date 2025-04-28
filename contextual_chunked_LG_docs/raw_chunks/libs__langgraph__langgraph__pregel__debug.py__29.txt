@@ -1,0 +1,12 @@
+def print_step_tasks(step: int, next_tasks: list[PregelExecutableTask]) -> None:
+    n_tasks = len(next_tasks)
+    print(
+        f"{get_colored_text(f'[{step}:tasks]', color='blue')} "
+        + get_bolded_text(
+            f"Starting {n_tasks} task{'s' if n_tasks != 1 else ''} for step {step}:\n"
+        )
+        + "\n".join(
+            f"- {get_colored_text(task.name, 'green')} -> {pformat(task.input)}"
+            for task in next_tasks
+        )
+    )

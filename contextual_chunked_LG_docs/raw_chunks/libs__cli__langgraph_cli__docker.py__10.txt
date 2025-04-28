@@ -1,0 +1,5 @@
+class DockerCapabilities(NamedTuple):
+    version_docker: Version
+    version_compose: Version
+    healthcheck_start_interval: bool
+    compose_type: DockerComposeType = "plugin"

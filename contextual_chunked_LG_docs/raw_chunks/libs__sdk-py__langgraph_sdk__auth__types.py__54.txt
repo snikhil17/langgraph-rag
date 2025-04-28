@@ -1,0 +1,18 @@
+"""Operation to search for items within a specified namespace hierarchy."""
+class StoreSearch(typing.TypedDict):
+
+
+    namespace: tuple[str, ...]
+    """Prefix filter for defining the search scope."""
+
+    filter: typing.Optional[dict[str, typing.Any]]
+    """Key-value pairs for filtering results based on exact matches or comparison operators."""
+
+    limit: int
+    """Maximum number of items to return in the search results."""
+
+    offset: int
+    """Number of matching items to skip for pagination."""
+
+    query: typing.Optional[str]
+    """Naturalj language search query for semantic search capabilities."""

@@ -1,0 +1,123 @@
+def test_push_graph(topics: Topics, acheckpointer: BaseCheckpointSaver) -> None:
+    input = ["0"]
+    config = {"configurable": {"thread_id": "1"}}
+    graph = mk_push_graph(acheckpointer)
+    graph_compare = mk_push_graph(acheckpointer)
+
+    # start a new run
+    with DefaultProducer() as producer:
+        producer.send(
+            topics.orchestrator,
+            value=serde.dumps(MessageToOrchestrator(input=input, config=config)),
+        )
+        producer.flush()
+
+    # drain topics
+    orch_msgs, exec_msgs = drain_topics(topics, graph)
+
+    # check state
+    state = graph.get_state(config)
+    assert all(not t.error for t in state.tasks)
+    assert state.next == ("flaky",)
+    assert (
+        state.values
+        == graph_compare.invoke(input, {"configurable": {"thread_id": "2"}})
+        == [
+            "0",
+            "1",
+            "2|Control(goto=Send(node='2', arg=3))",
+            "2|Control(goto=Send(node='flaky', arg=4))",
+            "2|3",
+        ]
+    )
+
+    # check history
+    history = [c for c in graph.get_state_history(config)]
+    assert len(history) == 2
+
+    # check messages
+    assert orch_msgs == [MessageToOrchestrator(input=input, config=config)] + [
+        {
+            "config": {
+                "callbacks": None,
+                "configurable": {
+                    "__pregel_ensure_latest": True,
+                    "__pregel_dedupe_tasks": True,
+                    "__pregel_resuming": False,
+                    "checkpoint_id": c.config["configurable"]["checkpoint_id"],
+                    "checkpoint_ns": "",
+                    "thread_id": "1",
+                },
+                "metadata": AnyDict(),
+                "recursion_limit": 25,
+                "tags": [],
+            },
+            "input": None,
+            "finally_send": None,
+        }
+        for c in reversed(history)
+        for _ in c.tasks
+    ]
+    assert exec_msgs == [
+        {
+            "config": {
+                "callbacks": None,
+                "configurable": {
+                    "__pregel_ensure_latest": True,
+                    "__pregel_dedupe_tasks": True,
+                    "__pregel_resuming": False,
+                    "checkpoint_id": c.config["configurable"]["checkpoint_id"],
+                    "checkpoint_ns": "",
+                    "thread_id": "1",
+                },
+                "metadata": AnyDict(),
+                "recursion_limit": 25,
+                "tags": [],
+            },
+            "task": {
+                "id": t.id,
+                "path": _convert_path(t.path),
+            },
+            "finally_send": None,
+        }
+        for c in reversed(history)
+        for t in c.tasks
+    ]
+
+    # resume the thread
+    with DefaultProducer() as producer:
+        producer.send(
+            topics.orchestrator,
+            value=serde.dumps(MessageToOrchestrator(input=None, config=config)),
+        )
+        producer.flush()
+
+    orch_msgs, exec_msgs = drain_topics(topics, graph)
+
+    # check final state
+    state = graph.get_state(config)
+    assert state.next == ()
+    assert (
+        state.values
+        == graph_compare.invoke(None, {"configurable": {"thread_id": "2"}})
+        == [
+            "0",
+            "1",
+            "2|Control(goto=Send(node='2', arg=3))",
+            "2|Control(goto=Send(node='flaky', arg=4))",
+            "2|3",
+            "flaky|4",
+            "3",
+            "3.1",
+        ]
+    )
+
+    # check history
+    history = [c for c in graph.get_state_history(config)]
+    assert len(history) == 4
+
+    # check executions
+    # node "2" doesn't get called again, as we recover writes saved before
+    assert graph.builder.nodes["2"].runnable.func.ticks == 3
+    # node "flaky" gets called again, as it was interrupted
+    assert graph.builder.nodes["flaky"].runnable.func.ticks == 2

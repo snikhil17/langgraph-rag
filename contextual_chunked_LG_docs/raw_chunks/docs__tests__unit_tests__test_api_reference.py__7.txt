@@ -1,0 +1,7 @@
+def test_regexp_matching(code: str, expected_imports: list) -> None:
+    results = get_imports(code, "some_path")
+    for result in results:
+        del result["docs"]
+        del result["path"]
+
+    assert results == expected_imports

@@ -1,0 +1,49 @@
+"""Fixture providing test data for checkpoint tests."""
+def test_data():
+
+    config_1: RunnableConfig = {
+        "configurable": {
+            "thread_id": "thread-1",
+            # for backwards compatibility testing
+            "thread_ts": "1",
+            "checkpoint_ns": "",
+        }
+    }
+    config_2: RunnableConfig = {
+        "configurable": {
+            "thread_id": "thread-2",
+            "checkpoint_id": "2",
+            "checkpoint_ns": "",
+        }
+    }
+    config_3: RunnableConfig = {
+        "configurable": {
+            "thread_id": "thread-2",
+            "checkpoint_id": "2-inner",
+            "checkpoint_ns": "inner",
+        }
+    }
+
+    chkpnt_1: Checkpoint = empty_checkpoint()
+    chkpnt_2: Checkpoint = create_checkpoint(chkpnt_1, {}, 1)
+    chkpnt_3: Checkpoint = empty_checkpoint()
+
+    metadata_1: CheckpointMetadata = {
+        "source": "input",
+        "step": 2,
+        "writes": {},
+        "score": 1,
+    }
+    metadata_2: CheckpointMetadata = {
+        "source": "loop",
+        "step": 1,
+        "writes": {"foo": "bar"},
+        "score": None,
+    }
+    metadata_3: CheckpointMetadata = {}
+
+    return {
+        "configs": [config_1, config_2, config_3],
+        "checkpoints": [chkpnt_1, chkpnt_2, chkpnt_3],
+        "metadata": [metadata_1, metadata_2, metadata_3],
+    }

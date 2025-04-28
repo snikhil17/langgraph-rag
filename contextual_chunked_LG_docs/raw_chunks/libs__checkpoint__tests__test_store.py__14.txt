@@ -1,0 +1,41 @@
+def test_list_namespaces_with_wildcards() -> None:
+    store = InMemoryStore()
+
+    namespaces = [
+        ("users", "123"),
+        ("users", "456"),
+        ("users", "789", "settings"),
+        ("admin", "users", "789"),
+        ("guests", "123"),
+        ("guests", "456", "preferences"),
+    ]
+
+    for i, ns in enumerate(namespaces):
+        store.put(namespace=ns, key=f"id_{i}", value={"data": f"value_{i:02d}"})
+
+    result = store.list_namespaces(prefix=("users", "*"))
+    expected = [
+        ("users", "123"),
+        ("users", "456"),
+        ("users", "789", "settings"),
+    ]
+    assert sorted(result) == sorted(expected)
+
+    result = store.list_namespaces(suffix=("*", "preferences"))
+    expected = [
+        ("guests", "456", "preferences"),
+    ]
+    assert result == expected
+
+    result = store.list_namespaces(prefix=("*", "users"), suffix=("*", "settings"))
+
+    assert result == []
+
+    store.put(
+        namespace=("admin", "users", "settings", "789"),
+        key="foo",
+        value={"data": "some_val"},
+    )
+    expected = [
+        ("admin", "users", "settings", "789"),
+    ]

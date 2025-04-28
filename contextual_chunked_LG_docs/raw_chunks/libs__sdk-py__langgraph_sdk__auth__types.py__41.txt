@@ -1,0 +1,26 @@
+"""Parameters for searching threads.
+
+Called for searches to threads or runs."""
+class ThreadsSearch(typing.TypedDict, total=False):
+    """Parameters for searching threads.
+
+    Called for searches to threads or runs.
+    """
+
+    metadata: MetadataInput
+    """typing.Optional metadata to filter by."""
+
+    values: MetadataInput
+    """typing.Optional values to filter by."""
+
+    status: typing.Optional[ThreadStatus]
+    """typing.Optional status to filter by."""
+
+    limit: int
+    """Maximum number of results to return."""
+
+    offset: int
+    """Offset for pagination."""
+
+    thread_id: typing.Optional[UUID]
+    """typing.Optional thread ID to filter by."""

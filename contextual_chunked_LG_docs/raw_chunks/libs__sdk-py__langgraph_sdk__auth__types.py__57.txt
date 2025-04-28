@@ -1,0 +1,9 @@
+"""Operation to delete an item from the store."""
+class StoreDelete(typing.TypedDict):
+
+
+    namespace: tuple[str, ...]
+    """Hierarchical path that uniquely identifies the item's location."""
+
+    key: str
+    """Unique identifier for the item within its specific namespace."""

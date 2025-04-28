@@ -1,0 +1,9 @@
+def call_tool(state):
+    last_message_content = state["messages"][-1].content
+    return {
+        "messages": [
+            ToolMessage(
+                f"tool_call__{last_message_content}", tool_call_id="tool_call_id"
+            )
+        ]
+    }

@@ -1,0 +1,22 @@
+"""Add the path to the code blocks."""
+def _add_path_to_code_blocks(markdown: str, page: Page) -> str:
+
+    code_block_pattern = re.compile(
+        r"(?P<indent>[ \t]*)```(?P<language>\w+)[ ]*(?P<attributes>[^\n]*)\n"
+        r"(?P<code>((?:.*\n)*?))"  # Capture the code inside the block using named group
+        r"(?P=indent)```"  # Match closing backticks with the same indentation
+    )
+
+    def replace_code_block_header(match: re.Match) -> str:
+        indent = match.group("indent")
+        language = match.group("language")
+        attributes = match.group("attributes").rstrip()
+
+        if 'exec="on"' not in attributes:
+            # Return original code block
+            return match.group(0)
+
+        code = match.group("code")
+        return f'{indent}```{language} {attributes} path="{page.file.src_path}"\n{code}{indent}```'
+
+    return code_block_pattern.sub(replace_code_block_header, markdown)

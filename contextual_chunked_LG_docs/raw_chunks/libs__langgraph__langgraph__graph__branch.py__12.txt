@@ -1,0 +1,43 @@
+def _get_branch_path_input_schema(
+    path: Union[
+        Callable[..., Union[Hashable, list[Hashable]]],
+        Callable[..., Awaitable[Union[Hashable, list[Hashable]]]],
+        Runnable[Any, Union[Hashable, list[Hashable]]],
+    ],
+) -> Optional[type[Any]]:
+    input = None
+    # detect input schema annotation in the branch callable
+    try:
+        callable_: Optional[
+            Union[
+                Callable[..., Union[Hashable, list[Hashable]]],
+                Callable[..., Awaitable[Union[Hashable, list[Hashable]]]],
+            ]
+        ] = None
+        if isinstance(path, (RunnableCallable, RunnableLambda)):
+            if isfunction(path.func) or ismethod(path.func):
+                callable_ = path.func
+            elif (callable_method := getattr(path.func, "__call__", None)) and ismethod(
+                callable_method
+            ):
+                callable_ = callable_method
+            elif isfunction(path.afunc) or ismethod(path.afunc):
+                callable_ = path.afunc
+            elif (
+                callable_method := getattr(path.afunc, "__call__", None)
+            ) and ismethod(callable_method):
+                callable_ = callable_method
+        elif callable(path):
+            callable_ = path
+
+        if callable_ is not None and (hints := get_type_hints(callable_)):
+            first_parameter_name = next(
+                iter(signature(cast(FunctionType, callable_)).parameters.keys())
+            )
+            if input_hint := hints.get(first_parameter_name):
+                if isinstance(input_hint, type) and get_type_hints(input_hint):
+                    input = input_hint
+    except (TypeError, StopIteration):
+        pass
+
+    return input

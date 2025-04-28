@@ -1,0 +1,3 @@
+class SyncAsyncFuture(Generic[T], concurrent.futures.Future[T]):
+    def __await__(self) -> Generator[T, None, T]:
+        yield cast(T, ...)

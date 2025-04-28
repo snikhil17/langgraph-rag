@@ -1,0 +1,7 @@
+class MyDataclass:
+    foo: str
+    bar: int
+    inner: InnerDataclass
+
+    def something(self) -> None:
+        pass

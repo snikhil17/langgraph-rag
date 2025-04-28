@@ -1,0 +1,2 @@
+def _msgpack_enc(data: Any) -> bytes:
+    return ormsgpack.packb(data, default=_msgpack_default, option=_option)

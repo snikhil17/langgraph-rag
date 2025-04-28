@@ -1,0 +1,8 @@
+"""Represents a part of a stream response."""
+class StreamPart(NamedTuple):
+
+
+    event: str
+    """The type of event for this stream part."""
+    data: dict
+    """The data payload associated with the event."""

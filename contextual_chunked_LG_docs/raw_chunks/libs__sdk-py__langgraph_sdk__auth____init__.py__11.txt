@@ -1,0 +1,19 @@
+class _ResourceActionOn(typing.Generic[T]):
+    def __init__(
+        self,
+        auth: Auth,
+        resource: typing.Literal["threads", "crons", "assistants"],
+        action: typing.Literal[
+            "create", "read", "update", "delete", "search", "create_run"
+        ],
+        value: type[T],
+    ) -> None:
+        self.auth = auth
+        self.resource = resource
+        self.action = action
+        self.value = value
+
+    def __call__(self, fn: _ActionHandler[T]) -> _ActionHandler[T]:
+        _validate_handler(fn)
+        _register_handler(self.auth, self.resource, self.action, fn)
+        return fn

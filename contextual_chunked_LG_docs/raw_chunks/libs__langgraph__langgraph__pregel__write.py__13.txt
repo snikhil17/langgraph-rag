@@ -1,0 +1,7 @@
+class ChannelWriteTupleEntry(NamedTuple):
+    mapper: Callable[[Any], Sequence[tuple[str, Any]] | None]
+    """Function to extract tuples from value."""
+    value: Any = PASSTHROUGH
+    """Value to write, or PASSTHROUGH to use the input."""
+    static: Optional[Sequence[tuple[str, Any, Optional[str]]]] = None
+    """Optional, declared writes for static analysis."""

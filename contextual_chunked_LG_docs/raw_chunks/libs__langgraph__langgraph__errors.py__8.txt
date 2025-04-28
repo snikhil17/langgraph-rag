@@ -1,0 +1,16 @@
+"""Raised when attempting to update a channel with an invalid set of updates.
+
+Troubleshooting Guides:
+
+- [INVALID_CONCURRENT_GRAPH_UPDATE](https://python.langchain.com/docs/troubleshooting/errors/INVALID_CONCURRENT_GRAPH_UPDATE)
+- [INVALID_GRAPH_NODE_RETURN_VALUE](https://python.langchain.com/docs/troubleshooting/errors/INVALID_GRAPH_NODE_RETURN_VALUE)"""
+class InvalidUpdateError(Exception):
+    """Raised when attempting to update a channel with an invalid set of updates.
+
+    Troubleshooting Guides:
+
+    - [INVALID_CONCURRENT_GRAPH_UPDATE](https://python.langchain.com/docs/troubleshooting/errors/INVALID_CONCURRENT_GRAPH_UPDATE)
+    - [INVALID_GRAPH_NODE_RETURN_VALUE](https://python.langchain.com/docs/troubleshooting/errors/INVALID_GRAPH_NODE_RETURN_VALUE)
+    """
+
+    pass

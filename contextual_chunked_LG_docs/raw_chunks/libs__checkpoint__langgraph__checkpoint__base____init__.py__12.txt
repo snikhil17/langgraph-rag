@@ -1,0 +1,2 @@
+class TaskInfo(TypedDict):
+    status: Literal["scheduled", "success", "error"]

@@ -1,0 +1,23 @@
+"""Create a sequential no-op graph consisting of a few hundred nodes."""
+def create_sequential(number_nodes: int) -> StateGraph:
+
+    builder = StateGraph(MessagesState)
+
+    def noop(state: MessagesState) -> None:
+        """No-op function."""
+        pass
+
+    async def anoop(state: MessagesState) -> None:
+        """No-op function."""
+        pass
+
+    prev_node = "__start__"
+
+    for i in range(number_nodes):
+        name = f"node_{i}"
+        builder.add_node(name, RunnableCallable(noop, anoop))
+        builder.add_edge(prev_node, name)
+        prev_node = name
+
+    builder.add_edge(prev_node, "__end__")
+    return builder

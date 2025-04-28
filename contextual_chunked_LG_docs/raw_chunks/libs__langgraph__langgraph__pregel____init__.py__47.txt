@@ -1,0 +1,70 @@
+class Channel:
+    @overload
+    @classmethod
+    def subscribe_to(
+        cls,
+        channels: str,
+        *,
+        key: str | None = None,
+        tags: list[str] | None = None,
+    ) -> PregelNode: ...
+
+    @overload
+    @classmethod
+    def subscribe_to(
+        cls,
+        channels: Sequence[str],
+        *,
+        key: None = None,
+        tags: list[str] | None = None,
+    ) -> PregelNode: ...
+
+    @classmethod
+    def subscribe_to(
+        cls,
+        channels: str | Sequence[str],
+        *,
+        key: str | None = None,
+        tags: list[str] | None = None,
+    ) -> PregelNode:
+        """Runs process.invoke() each time channels are updated,
+        with a dict of the channel values as input."""
+        if not isinstance(channels, str) and key is not None:
+            raise ValueError(
+                "Can't specify a key when subscribing to multiple channels"
+            )
+        return PregelNode(
+            channels=cast(
+                Union[list[str], Mapping[str, str]],
+                (
+                    {key: channels}
+                    if isinstance(channels, str) and key is not None
+                    else (
+                        [channels]
+                        if isinstance(channels, str)
+                        else {chan: chan for chan in channels}
+                    )
+                ),
+            ),
+            triggers=[channels] if isinstance(channels, str) else channels,
+            tags=tags,
+        )
+
+    @classmethod
+    def write_to(
+        cls,
+        *channels: str,
+        **kwargs: WriteValue,
+    ) -> ChannelWrite:
+        """Writes to channels the result of the lambda, or None to skip writing."""
+        return ChannelWrite(
+            [ChannelWriteEntry(c) for c in channels]
+            + [
+                (
+                    ChannelWriteEntry(k, mapper=v)
+                    if callable(v)
+                    else ChannelWriteEntry(k, value=v)
+                )
+                for k, v in kwargs.items()
+            ]
+        )

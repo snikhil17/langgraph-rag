@@ -1,0 +1,23 @@
+def get_runnable_for_entrypoint(func: Callable[..., Any]) -> RunnableSeq:
+    key = (func, False)
+    if key in CACHE:
+        return CACHE[key]
+    else:
+        if is_async_callable(func):
+            run = RunnableCallable(
+                None, func, name=func.__name__, trace=False, recurse=False
+            )
+        else:
+            afunc = functools.update_wrapper(
+                functools.partial(run_in_executor, None, func), func
+            )
+            run = RunnableCallable(
+                func,
+                afunc,
+                name=func.__name__,
+                trace=False,
+                recurse=False,
+            )
+        if not _lookup_module_and_qualname(func):
+            return run
+        return CACHE.setdefault(key, run)

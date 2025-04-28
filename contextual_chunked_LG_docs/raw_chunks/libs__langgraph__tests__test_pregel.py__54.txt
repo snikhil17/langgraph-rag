@@ -1,0 +1,17 @@
+def test_graph_validation_with_command() -> None:
+    class State(TypedDict):
+        foo: str
+        bar: str
+
+    def node_a(state: State):
+        return Command(goto="b", update={"foo": "bar"})
+
+    def node_b(state: State):
+        return Command(goto=END, update={"bar": "baz"})
+
+    builder = StateGraph(State)
+    builder.add_node("a", node_a)
+    builder.add_node("b", node_b)
+    builder.add_edge(START, "a")
+    graph = builder.compile()
+    assert graph.invoke({"foo": ""}) == {"foo": "bar", "bar": "baz"}

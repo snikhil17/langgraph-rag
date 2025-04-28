@@ -1,0 +1,18 @@
+"""Test pagination with vector search."""
+def test_vector_search_pagination(fake_embeddings: CharacterEmbeddings) -> None:
+
+    store = InMemoryStore(
+        index={"dims": fake_embeddings.dims, "embed": fake_embeddings}
+    )
+    for i in range(5):
+        store.put(("test",), f"doc{i}", {"text": f"test document number {i}"})
+
+    results_page1 = store.search(("test",), query="test", limit=2)
+    results_page2 = store.search(("test",), query="test", limit=2, offset=2)
+
+    assert len(results_page1) == 2
+    assert len(results_page2) == 2
+    assert results_page1[0].key != results_page2[0].key
+
+    all_results = store.search(("test",), query="test", limit=10)
+    assert len(all_results) == 5

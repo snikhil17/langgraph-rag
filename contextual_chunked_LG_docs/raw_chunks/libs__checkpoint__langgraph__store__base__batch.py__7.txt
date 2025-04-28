@@ -1,0 +1,23 @@
+def _check_loop(func: F) -> F:
+    @functools.wraps(func)
+    def wrapper(store: "AsyncBatchedBaseStore", *args: Any, **kwargs: Any) -> Any:
+        method_name: str = func.__name__
+        try:
+            current_loop = asyncio.get_running_loop()
+            if current_loop is store._loop:
+                replacement_str = (
+                    f"Specifically, replace `store.{method_name}(...)` with `await store.a{method_name}(...)"
+                    if method_name
+                    else "For example, replace `store.get(...)` with `await store.aget(...)`"
+                )
+                raise asyncio.InvalidStateError(
+                    f"Synchronous calls to {store.__class__.__name__} detected in the main event loop. "
+                    "This can lead to deadlocks or performance issues. "
+                    "Please use the asynchronous interface for main thread operations. "
+                    f"{replacement_str} "
+                )
+        except RuntimeError:
+            pass
+        return func(store, *args, **kwargs)
+
+    return wrapper

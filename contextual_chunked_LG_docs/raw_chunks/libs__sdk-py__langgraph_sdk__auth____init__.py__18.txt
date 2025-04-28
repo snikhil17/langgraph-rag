@@ -1,0 +1,21 @@
+class _AssistantsOn(
+    _ResourceOn[
+        types.AssistantsCreate,
+        types.AssistantsRead,
+        types.AssistantsUpdate,
+        types.AssistantsDelete,
+        types.AssistantsSearch,
+    ]
+):
+    value = typing.Union[
+        types.AssistantsCreate,
+        types.AssistantsRead,
+        types.AssistantsUpdate,
+        types.AssistantsDelete,
+        types.AssistantsSearch,
+    ]
+    Create = types.AssistantsCreate
+    Read = types.AssistantsRead
+    Update = types.AssistantsUpdate
+    Delete = types.AssistantsDelete
+    Search = types.AssistantsSearch

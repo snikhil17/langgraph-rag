@@ -1,0 +1,25 @@
+"""Extract all python code blocks (including their fence lines) from the markdown content.
+A python block is defined as any block that starts with a line containing an opening fence
+with '```python' (optionally with extra parameters) and ends with a closing fence '```'."""
+def extract_python_snippets(markdown: str) -> list[str]:
+    """
+    Extract all python code blocks (including their fence lines) from the markdown content.
+    A python block is defined as any block that starts with a line containing an opening fence
+    with '```python' (optionally with extra parameters) and ends with a closing fence '```'.
+    """
+    snippets = []
+    inside_block = False
+    current_snippet = []
+
+    for line in markdown.splitlines(keepends=True):
+        if not inside_block:
+            if opening_pattern.match(line):
+                inside_block = True
+                current_snippet = [line]
+        else:
+            current_snippet.append(line)
+            if closing_pattern.match(line):
+                inside_block = False
+                snippets.append("".join(current_snippet))
+                current_snippet = []
+    return snippets

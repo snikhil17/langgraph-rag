@@ -1,0 +1,2 @@
+def _subsec_decode(value: int) -> int:
+    return -(-value * 10**6 // 2**20)

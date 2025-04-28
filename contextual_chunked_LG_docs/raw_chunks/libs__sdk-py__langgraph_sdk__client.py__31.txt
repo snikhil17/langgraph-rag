@@ -1,0 +1,10 @@
+def encode_json(json: Any) -> tuple[dict[str, str], bytes]:
+    body = orjson.dumps(
+        json,
+        orjson_default,
+        orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NON_STR_KEYS,
+    )
+    content_length = str(len(body))
+    content_type = "application/json"
+    headers = {"Content-Length": content_length, "Content-Type": content_type}
+    return headers, body

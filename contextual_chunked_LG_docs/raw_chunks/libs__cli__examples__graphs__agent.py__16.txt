@@ -1,0 +1,2 @@
+class ConfigSchema(TypedDict):
+    model: Literal["anthropic", "openai"]

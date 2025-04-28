@@ -1,0 +1,142 @@
+"""Implements the logic for sending writes to CONFIG_KEY_SEND.
+Can be used as a runnable or as a static method to call imperatively."""
+class ChannelWrite(RunnableCallable):
+    """Implements the logic for sending writes to CONFIG_KEY_SEND.
+    Can be used as a runnable or as a static method to call imperatively."""
+
+    writes: list[ChannelWriteEntry | ChannelWriteTupleEntry | Send]
+    """Sequence of write entries or Send objects to write."""
+
+    def __init__(
+        self,
+        writes: Sequence[ChannelWriteEntry | ChannelWriteTupleEntry | Send],
+        *,
+        tags: Sequence[str] | None = None,  # ignored
+        require_at_least_one_of: Sequence[str] | None = None,  # ignored
+    ):
+        super().__init__(
+            func=self._write,
+            afunc=self._awrite,
+            name=None,
+            trace=False,
+            func_accepts_config=True,
+        )
+        self.writes = cast(
+            list[Union[ChannelWriteEntry, ChannelWriteTupleEntry, Send]], writes
+        )
+
+    def get_name(self, suffix: str | None = None, *, name: str | None = None) -> str:
+        if not name:
+            name = f"ChannelWrite<{','.join(w.channel if isinstance(w, ChannelWriteEntry) else '...' if isinstance(w, ChannelWriteTupleEntry) else w.node for w in self.writes)}>"
+        return super().get_name(suffix, name=name)
+
+    @property
+    def config_specs(self) -> list[ConfigurableFieldSpec]:
+        return [
+            ConfigurableFieldSpec(
+                id=CONFIG_KEY_SEND,
+                name=CONFIG_KEY_SEND,
+                description=None,
+                default=None,
+                annotation=None,
+            ),
+        ]
+
+    def _write(self, input: Any, config: RunnableConfig) -> None:
+        writes = [
+            ChannelWriteEntry(write.channel, input, write.skip_none, write.mapper)
+            if isinstance(write, ChannelWriteEntry) and write.value is PASSTHROUGH
+            else ChannelWriteTupleEntry(write.mapper, input)
+            if isinstance(write, ChannelWriteTupleEntry) and write.value is PASSTHROUGH
+            else write
+            for write in self.writes
+        ]
+        self.do_write(
+            config,
+            writes,
+        )
+        return input
+
+    async def _awrite(self, input: Any, config: RunnableConfig) -> None:
+        writes = [
+            ChannelWriteEntry(write.channel, input, write.skip_none, write.mapper)
+            if isinstance(write, ChannelWriteEntry) and write.value is PASSTHROUGH
+            else ChannelWriteTupleEntry(write.mapper, input)
+            if isinstance(write, ChannelWriteTupleEntry) and write.value is PASSTHROUGH
+            else write
+            for write in self.writes
+        ]
+        self.do_write(
+            config,
+            writes,
+        )
+        return input
+
+    @staticmethod
+    def do_write(
+        config: RunnableConfig,
+        writes: Sequence[ChannelWriteEntry | ChannelWriteTupleEntry | Send],
+        allow_passthrough: bool = True,
+        require_at_least_one_of: Sequence[str] | None = None,  # ignored
+    ) -> None:
+        # validate
+        for w in writes:
+            if isinstance(w, ChannelWriteEntry):
+                if w.channel == TASKS:
+                    raise InvalidUpdateError(
+                        "Cannot write to the reserved channel TASKS"
+                    )
+                if w.value is PASSTHROUGH and not allow_passthrough:
+                    raise InvalidUpdateError("PASSTHROUGH value must be replaced")
+            if isinstance(w, ChannelWriteTupleEntry):
+                if w.value is PASSTHROUGH and not allow_passthrough:
+                    raise InvalidUpdateError("PASSTHROUGH value must be replaced")
+        # if we want to persist writes found before hitting a ParentCommand
+        # can move this to a finally block
+        write: TYPE_SEND = config[CONF][CONFIG_KEY_SEND]
+        write(_assemble_writes(writes))
+
+    @staticmethod
+    def is_writer(runnable: Runnable) -> bool:
+        """Used by PregelNode to distinguish between writers and other runnables."""
+        return (
+            isinstance(runnable, ChannelWrite)
+            or getattr(runnable, "_is_channel_writer", MISSING) is not MISSING
+        )
+
+    @staticmethod
+    def get_static_writes(
+        runnable: Runnable,
+    ) -> Optional[Sequence[tuple[str, Any, Optional[str]]]]:
+        """Used to get conditional writes a writer declares for static analysis."""
+        if isinstance(runnable, ChannelWrite):
+            return [
+                w
+                for entry in runnable.writes
+                if isinstance(entry, ChannelWriteTupleEntry) and entry.static
+                for w in entry.static
+            ] or None
+        elif writes := getattr(runnable, "_is_channel_writer", MISSING):
+            if writes is not MISSING:
+                writes = cast(
+                    Sequence[tuple[Union[ChannelWriteEntry, Send], Optional[str]]],
+                    writes,
+                )
+                entries = [e for e, _ in writes]
+                labels = [la for _, la in writes]
+                return [(*t, la) for t, la in zip(_assemble_writes(entries), labels)]
+
+    @staticmethod
+    def register_writer(
+        runnable: R,
+        static: Optional[
+            Sequence[tuple[Union[ChannelWriteEntry, Send], Optional[str]]]
+        ] = None,
+    ) -> R:
+        """Used to mark a runnable as a writer, so that it can be detected by is_writer.
+        Instances of ChannelWrite are automatically marked as writers.
+        Optionally, a list of declared writes can be passed for static analysis."""
+        # using object.__setattr__ to work around objects that override __setattr__
+        # eg. pydantic models and dataclasses
+        object.__setattr__(runnable, "_is_channel_writer", static)
+        return runnable

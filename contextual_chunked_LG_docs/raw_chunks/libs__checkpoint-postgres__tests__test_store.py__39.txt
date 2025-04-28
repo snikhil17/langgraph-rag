@@ -1,0 +1,22 @@
+def test_store_ttl(store):
+    # Assumes a TTL of 1 minute = 60 seconds
+    ns = ("foo",)
+    store.put(
+        ns,
+        key="item1",
+        value={"foo": "bar"},
+        ttl=TTL_MINUTES,  # type: ignore
+    )
+    time.sleep(TTL_SECONDS - 2)
+    res = store.get(ns, key="item1", refresh_ttl=True)
+    assert res is not None
+    time.sleep(TTL_SECONDS - 2)
+    results = store.search(ns, query="foo", refresh_ttl=True)
+    assert len(results) == 1
+    time.sleep(TTL_SECONDS - 2)
+    res = store.get(ns, key="item1", refresh_ttl=False)
+    assert res is not None
+    time.sleep(TTL_SECONDS - 1)
+    # Now has been (TTL_SECONDS-2)*2 > TTL_SECONDS + TTL_SECONDS/2
+    res = store.search(ns, query="bar", refresh_ttl=False)
+    assert len(res) == 0

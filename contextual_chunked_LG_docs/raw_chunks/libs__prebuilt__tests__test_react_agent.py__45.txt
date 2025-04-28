@@ -1,0 +1,66 @@
+def test_react_agent_update_state(
+    request: pytest.FixtureRequest,
+    checkpointer_name: str,
+    version: str,
+    state_schema: StateSchemaType,
+) -> None:
+    checkpointer: BaseCheckpointSaver = request.getfixturevalue(
+        "checkpointer_" + checkpointer_name
+    )
+
+    @dec_tool
+    def get_user_name(tool_call_id: Annotated[str, InjectedToolCallId]):
+        """Retrieve user name"""
+        user_name = interrupt("Please provider user name:")
+        return Command(
+            update={
+                "user_name": user_name,
+                "messages": [
+                    ToolMessage(
+                        "Successfully retrieved user name", tool_call_id=tool_call_id
+                    )
+                ],
+            }
+        )
+
+    if issubclass(state_schema, AgentStatePydantic):
+
+        def prompt(state: CustomStatePydantic):
+            user_name = state.user_name
+            if user_name is None:
+                return state.messages
+
+            system_msg = f"User name is {user_name}"
+            return [{"role": "system", "content": system_msg}] + state.messages
+    else:
+
+        def prompt(state: CustomState):
+            user_name = state.get("user_name")
+            if user_name is None:
+                return state["messages"]
+
+            system_msg = f"User name is {user_name}"
+            return [{"role": "system", "content": system_msg}] + state["messages"]
+
+    tool_calls = [[{"args": {}, "id": "1", "name": "get_user_name"}]]
+    model = FakeToolCallingModel(tool_calls=tool_calls)
+    agent = create_react_agent(
+        model,
+        [get_user_name],
+        state_schema=state_schema,
+        prompt=prompt,
+        checkpointer=checkpointer,
+        version=version,
+    )
+    config = {"configurable": {"thread_id": "1"}}
+    # run until interrpupted
+    agent.invoke({"messages": [("user", "what's my name")]}, config)
+    # supply the value for the interrupt
+    response = agent.invoke(Command(resume="Archibald"), config)
+    # confirm that the state was updated
+    assert response["user_name"] == "Archibald"
+    assert len(response["messages"]) == 4
+    tool_message: ToolMessage = response["messages"][-2]
+    assert tool_message.content == "Successfully retrieved user name"
+    assert tool_message.tool_call_id == "1"
+    assert tool_message.name == "get_user_name"

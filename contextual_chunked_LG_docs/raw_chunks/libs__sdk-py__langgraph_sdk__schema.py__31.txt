@@ -1,0 +1,6 @@
+"""Represents an assistant with additional properties."""
+class Assistant(AssistantBase):
+
+
+    updated_at: datetime
+    """The last time the assistant was updated."""

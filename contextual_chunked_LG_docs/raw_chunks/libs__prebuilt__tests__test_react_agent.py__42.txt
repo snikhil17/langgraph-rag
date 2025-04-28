@@ -1,0 +1,25 @@
+def test_react_agent_with_structured_response(version: str) -> None:
+    class WeatherResponse(BaseModel):
+        temperature: float = Field(description="The temperature in fahrenheit")
+
+    tool_calls = [[{"args": {}, "id": "1", "name": "get_weather"}], []]
+
+    def get_weather():
+        """Get the weather"""
+        return "The weather is sunny and 75°F."
+
+    expected_structured_response = WeatherResponse(temperature=75)
+    model = FakeToolCallingModel(
+        tool_calls=tool_calls, structured_response=expected_structured_response
+    )
+    for response_format in (WeatherResponse, ("Meow", WeatherResponse)):
+        agent = create_react_agent(
+            model,
+            [get_weather],
+            response_format=response_format,
+            version=version,
+        )
+        response = agent.invoke({"messages": [HumanMessage("What's the weather?")]})
+        assert response["structured_response"] == expected_structured_response
+        assert len(response["messages"]) == 4
+        assert response["messages"][-2].content == "The weather is sunny and 75°F."

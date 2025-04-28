@@ -1,0 +1,51 @@
+"""Configuration for indexing documents for semantic search in the store.
+
+This governs how text is converted into embeddings and stored for vector-based lookups."""
+class IndexConfig(TypedDict, total=False):
+    """Configuration for indexing documents for semantic search in the store.
+
+    This governs how text is converted into embeddings and stored for vector-based lookups.
+    """
+
+    dims: int
+    """Required. Dimensionality of the embedding vectors you will store.
+
+    Must match the output dimension of your selected embedding model or custom embed function.
+    If mismatched, you will likely encounter shape/size errors when inserting or querying vectors.
+
+    Common embedding model output dimensions:
+        - openai:text-embedding-3-large: 3072
+        - openai:text-embedding-3-small: 1536
+        - openai:text-embedding-ada-002: 1536
+        - cohere:embed-english-v3.0: 1024
+        - cohere:embed-english-light-v3.0: 384
+        - cohere:embed-multilingual-v3.0: 1024
+        - cohere:embed-multilingual-light-v3.0: 384
+    """
+
+    embed: str
+    """Required. Identifier or reference to the embedding model or a custom embedding function.
+
+    The format can vary:
+      - "<provider>:<model_name>" for recognized providers (e.g., "openai:text-embedding-3-large")
+      - "path/to/module.py:function_name" for your own local embedding function
+      - "my_custom_embed" if it's a known alias in your system
+
+     Examples:
+        - "openai:text-embedding-3-large"
+        - "cohere:embed-multilingual-v3.0"
+        - "src/app.py:embeddings"
+
+    Note: Must return embeddings of dimension `dims`.
+    """
+
+    fields: Optional[list[str]]
+    """Optional. List of JSON fields to extract before generating embeddings.
+
+    Defaults to ["$"], which means the entire JSON object is embedded as one piece of text.
+    If you provide multiple fields (e.g. ["title", "content"]), each is extracted and embedded separately,
+    often saving token usage if you only care about certain parts of the data.
+
+    Example:
+        fields=["title", "abstract", "author.biography"]
+    """

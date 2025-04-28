@@ -1,0 +1,11 @@
+def _pick_mapper(
+    state_keys: Sequence[str], schema: type[Any], type_hints: Optional[dict[str, Any]]
+) -> Optional[Callable[[Any], Any]]:
+    if state_keys == ["__root__"]:
+        return None
+    if isclass(schema):
+        if issubclass(schema, dict):
+            return None
+        if issubclass(schema, (BaseModel, BaseModelV1)):
+            return SchemaCoercionMapper(schema, type_hints=type_hints)
+    return partial(_coerce_state, schema)

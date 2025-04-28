@@ -1,0 +1,2 @@
+"""A string enum."""
+class StrEnum(str, enum.Enum):

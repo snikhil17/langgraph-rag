@@ -1,0 +1,37 @@
+"""Translate a python code block into a TypeScript code block using Langchain.
+The response is expected to be a properly fenced TypeScript code block (i.e.
+starting with ```typescript and ending with ```)."""
+def translate_snippet(python_snippet: str) -> str:
+    """Translate a python code block into a TypeScript code block using Langchain.
+    The response is expected to be a properly fenced TypeScript code block (i.e.
+    starting with ```typescript and ending with ```).
+    """
+    ai_message = model.invoke(
+        [
+            {
+                "role": "system",
+                "content": (
+                    f"You have access to the following up-to-date example TypeScript code "
+                    f"snippets that show examples of building with langgraph "
+                    f"and langchain:\n\n{reference_snippets}\n\n"
+                    "Use this context to translate the following Python code to equivalent "
+                    "TypeScript. Ensure that your output is a valid fenced TypeScript "
+                    "code block (i.e. starts with ```typescript and ends with ```)."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Translate this Python snippet to TypeScript:\n\n{python_snippet}",
+            },
+        ]
+    )
+
+    # Use a regular expression to search for a TypeScript code block in the response.
+    pattern = r"```typescript\s*(.*?)\s*```"
+    match = re.search(pattern, ai_message.content, re.DOTALL)
+    if match:
+        # Reconstruct the code block with proper fences.
+        typescript_code = match.group(1).strip()
+        return f"```typescript\n{typescript_code}\n```"
+    else:
+        raise ValueError("No TypeScript code block found in the model's response.")

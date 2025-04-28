@@ -1,0 +1,19 @@
+def test_batch_put_ops(store: PostgresStore) -> None:
+    ops = [
+        PutOp(namespace=("test",), key="key1", value={"data": "value1"}),
+        PutOp(namespace=("test",), key="key2", value={"data": "value2"}),
+        PutOp(namespace=("test",), key="key3", value=None),  # Delete operation
+    ]
+
+    results = store.batch(ops)
+    assert len(results) == 3
+    assert all(result is None for result in results)
+
+    # Verify the puts worked
+    item1 = store.get(("test",), "key1")
+    item2 = store.get(("test",), "key2")
+    item3 = store.get(("test",), "key3")
+
+    assert item1 and item1.value == {"data": "value1"}
+    assert item2 and item2.value == {"data": "value2"}
+    assert item3 is None

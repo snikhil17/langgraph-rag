@@ -1,0 +1,9 @@
+def patch_configurable(
+    config: Optional[RunnableConfig], patch: dict[str, Any]
+) -> RunnableConfig:
+    if config is None:
+        return {CONF: patch}
+    elif CONF not in config:
+        return {**config, CONF: patch}
+    else:
+        return {**config, CONF: {**config[CONF], **patch}}

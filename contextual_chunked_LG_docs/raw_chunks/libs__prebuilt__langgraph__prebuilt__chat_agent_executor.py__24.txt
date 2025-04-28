@@ -1,0 +1,5 @@
+"""The state of the agent with a structured response."""
+class AgentStateWithStructuredResponsePydantic(AgentStatePydantic):
+
+
+    structured_response: StructuredResponse

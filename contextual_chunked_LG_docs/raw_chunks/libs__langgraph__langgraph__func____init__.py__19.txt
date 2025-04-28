@@ -1,0 +1,153 @@
+"""Define a LangGraph task using the `task` decorator.
+
+!!! important "Requires python 3.11 or higher for async functions"
+    The `task` decorator supports both sync and async functions. To use async
+    functions, ensure that you are using Python 3.11 or higher.
+
+Tasks can only be called from within an [entrypoint][langgraph.func.entrypoint] or
+from within a StateGraph. A task can be called like a regular function with the
+following differences:
+
+- When a checkpointer is enabled, the function inputs and outputs must be serializable.
+- The decorated function can only be called from within an entrypoint or StateGraph.
+- Calling the function produces a future. This makes it easy to parallelize tasks.
+
+Args:
+    retry: An optional retry policy to use for the task in case of a failure.
+
+Returns:
+    A callable function when used as a decorator.
+
+Example: Sync Task
+    ```python
+    from langgraph.func import entrypoint, task
+
+    @task
+    def add_one(a: int) -> int:
+        return a + 1
+
+    @entrypoint()
+    def add_one(numbers: list[int]) -> list[int]:
+        futures = [add_one(n) for n in numbers]
+        results = [f.result() for f in futures]
+        return results
+
+    # Call the entrypoint
+    add_one.invoke([1, 2, 3])  # Returns [2, 3, 4]
+    ```
+
+Example: Async Task
+    ```python
+    import asyncio
+    from langgraph.func import entrypoint, task
+
+    @task
+    async def add_one(a: int) -> int:
+        return a + 1
+
+    @entrypoint()
+    async def add_one(numbers: list[int]) -> list[int]:
+        futures = [add_one(n) for n in numbers]
+        return asyncio.gather(*futures)
+
+    # Call the entrypoint
+    await add_one.ainvoke([1, 2, 3])  # Returns [2, 3, 4]
+    ```"""
+def task(
+    __func_or_none__: Optional[Union[Callable[P, Awaitable[T]], Callable[P, T]]] = None,
+    *,
+    name: Optional[str] = None,
+    retry: Optional[Union[RetryPolicy, Sequence[RetryPolicy]]] = None,
+) -> Union[
+    Callable[
+        [Union[Callable[P, Awaitable[T]], Callable[P, T]]],
+        Callable[P, SyncAsyncFuture[T]],
+    ],
+    Callable[P, SyncAsyncFuture[T]],
+]:
+    """Define a LangGraph task using the `task` decorator.
+
+    !!! important "Requires python 3.11 or higher for async functions"
+        The `task` decorator supports both sync and async functions. To use async
+        functions, ensure that you are using Python 3.11 or higher.
+
+    Tasks can only be called from within an [entrypoint][langgraph.func.entrypoint] or
+    from within a StateGraph. A task can be called like a regular function with the
+    following differences:
+
+    - When a checkpointer is enabled, the function inputs and outputs must be serializable.
+    - The decorated function can only be called from within an entrypoint or StateGraph.
+    - Calling the function produces a future. This makes it easy to parallelize tasks.
+
+    Args:
+        retry: An optional retry policy to use for the task in case of a failure.
+
+    Returns:
+        A callable function when used as a decorator.
+
+    Example: Sync Task
+        ```python
+        from langgraph.func import entrypoint, task
+
+        @task
+        def add_one(a: int) -> int:
+            return a + 1
+
+        @entrypoint()
+        def add_one(numbers: list[int]) -> list[int]:
+            futures = [add_one(n) for n in numbers]
+            results = [f.result() for f in futures]
+            return results
+
+        # Call the entrypoint
+        add_one.invoke([1, 2, 3])  # Returns [2, 3, 4]
+        ```
+
+    Example: Async Task
+        ```python
+        import asyncio
+        from langgraph.func import entrypoint, task
+
+        @task
+        async def add_one(a: int) -> int:
+            return a + 1
+
+        @entrypoint()
+        async def add_one(numbers: list[int]) -> list[int]:
+            futures = [add_one(n) for n in numbers]
+            return asyncio.gather(*futures)
+
+        # Call the entrypoint
+        await add_one.ainvoke([1, 2, 3])  # Returns [2, 3, 4]
+        ```
+    """
+    if isinstance(retry, RetryPolicy):
+        retry_policies: Optional[Sequence[RetryPolicy]] = (retry,)
+    else:
+        retry_policies = retry
+
+    def decorator(
+        func: Union[Callable[P, Awaitable[T]], Callable[P, T]],
+    ) -> Union[
+        Callable[P, concurrent.futures.Future[T]], Callable[P, asyncio.Future[T]]
+    ]:
+        if name is not None:
+            if hasattr(func, "__func__"):
+                # handle class methods
+                # NOTE: we're modifying the instance method to avoid modifying
+                # the original class method in case it's shared across multiple tasks
+                instance_method = functools.partial(func.__func__, func.__self__)  # type: ignore [union-attr]
+                instance_method.__name__ = name  # type: ignore [attr-defined]
+                func = instance_method
+            else:
+                # handle regular functions / partials / callable classes, etc.
+                func.__name__ = name
+
+        call_func = functools.partial(call, func, retry=retry_policies)
+        object.__setattr__(call_func, "_is_pregel_task", True)
+        return functools.update_wrapper(call_func, func)
+
+    if __func_or_none__ is not None:
+        return decorator(__func_or_none__)
+
+    return decorator

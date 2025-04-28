@@ -1,0 +1,12 @@
+def test_system_message_prompt():
+    prompt = SystemMessage(content="Foo")
+    for agent in (
+        create_react_agent(FakeToolCallingModel(), [], prompt=prompt),
+        create_react_agent(FakeToolCallingModel(), [], state_modifier=prompt),
+    ):
+        inputs = [HumanMessage("hi?")]
+        response = agent.invoke({"messages": inputs})
+        expected_response = {
+            "messages": inputs + [AIMessage(content="Foo-hi?", id="0", tool_calls=[])]
+        }
+        assert response == expected_response

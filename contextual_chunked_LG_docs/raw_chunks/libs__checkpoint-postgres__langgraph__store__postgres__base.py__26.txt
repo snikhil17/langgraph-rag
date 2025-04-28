@@ -1,0 +1,12 @@
+"""Configuration for vector index in PostgreSQL store."""
+class ANNIndexConfig(TypedDict, total=False):
+
+
+    kind: Literal["hnsw", "ivfflat", "flat"]
+    """Type of index to use: 'hnsw' for Hierarchical Navigable Small World, or 'ivfflat' for Inverted File Flat."""
+    vector_type: Literal["vector", "halfvec"]
+    """Type of vector storage to use.
+    Options:
+    - 'vector': Regular vectors (default)
+    - 'halfvec': Half-precision vectors for reduced memory usage
+    """

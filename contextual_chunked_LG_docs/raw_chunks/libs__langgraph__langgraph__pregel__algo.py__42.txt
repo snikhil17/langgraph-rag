@@ -1,0 +1,8 @@
+"""Get the null version for the checkpoint, if available."""
+def checkpoint_null_version(
+    checkpoint: Checkpoint,
+) -> Optional[V]:
+
+    for version in checkpoint["channel_versions"].values():
+        return type(version)()
+    return None

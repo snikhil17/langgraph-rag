@@ -1,0 +1,57 @@
+"""Test recovery from checkpoints after failures."""
+def test_checkpoint_recovery(request: pytest.FixtureRequest, checkpointer_name: str):
+
+    checkpointer = request.getfixturevalue(f"checkpointer_{checkpointer_name}")
+
+    class State(TypedDict):
+        steps: Annotated[list[str], operator.add]
+        attempt: int  # Track number of attempts
+
+    def failing_node(state: State):
+        # Fail on first attempt, succeed on retry
+        if state["attempt"] == 1:
+            raise RuntimeError("Simulated failure")
+        return {"steps": ["node1"]}
+
+    def second_node(state: State):
+        return {"steps": ["node2"]}
+
+    builder = StateGraph(State)
+    builder.add_node("node1", failing_node)
+    builder.add_node("node2", second_node)
+    builder.add_edge(START, "node1")
+    builder.add_edge("node1", "node2")
+
+    graph = builder.compile(checkpointer=checkpointer)
+    config = {"configurable": {"thread_id": "1"}}
+
+    # First attempt should fail
+    with pytest.raises(RuntimeError):
+        graph.invoke({"steps": ["start"], "attempt": 1}, config)
+
+    # Verify checkpoint state
+    state = graph.get_state(config)
+    assert state is not None
+    assert state.values == {"steps": ["start"], "attempt": 1}  # input state saved
+    assert state.next == ("node1",)  # Should retry failed node
+    assert "RuntimeError('Simulated failure')" in state.tasks[0].error
+
+    # Retry with updated attempt count
+    result = graph.invoke({"steps": [], "attempt": 2}, config)
+    assert result == {"steps": ["start", "node1", "node2"], "attempt": 2}
+
+    if "shallow" in checkpointer_name:
+        return
+
+    # Verify checkpoint history shows both attempts
+    history = list(graph.get_state_history(config))
+    assert len(history) == 6  # Initial + failed attempt + successful attempt
+
+    # Verify the error was recorded in checkpoint
+    failed_checkpoint = next(c for c in history if c.tasks and c.tasks[0].error)
+    assert "RuntimeError('Simulated failure')" in failed_checkpoint.tasks[0].error
+
+    # Verify delete leaves it empty
+    graph.checkpointer.delete_thread(config["configurable"]["thread_id"])
+    assert graph.checkpointer.get_tuple(config) is None
+    assert [*graph.get_state_history(config)] == []

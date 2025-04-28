@@ -1,0 +1,11 @@
+"""Create a store with vector search enabled."""
+def vector_store(
+    request,
+    fake_embeddings: Embeddings,
+) -> PostgresStore:
+
+    vector_type, distance_type, enable_ttl = request.param
+    with _create_vector_store(
+        vector_type, distance_type, fake_embeddings, enable_ttl=enable_ttl
+    ) as store:
+        yield store

@@ -1,0 +1,8 @@
+"""Simulated user accepts a {"messages": [...]} argument and returns a single message."""
+def _create_simulated_user_node(simulated_user: Runnable):
+
+    return (
+        _swap_roles
+        | RunnableLambda(_invoke_simulated_user).bind(simulated_user=simulated_user)
+        | _convert_to_human_message
+    )

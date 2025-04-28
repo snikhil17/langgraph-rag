@@ -1,0 +1,9 @@
+def test_is_not_empty() -> None:
+    assert _is_not_empty("foo")
+    assert _is_not_empty("")
+    assert _is_not_empty(1)
+    assert _is_not_empty(0)
+    assert not _is_not_empty(None)
+    assert not _is_not_empty([])
+    assert not _is_not_empty(())
+    assert not _is_not_empty({})

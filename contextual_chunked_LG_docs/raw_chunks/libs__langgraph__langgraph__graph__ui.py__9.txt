@@ -1,0 +1,92 @@
+"""Push a new UI message to update the UI state.
+
+This function creates and sends a UI message that will be rendered in the UI.
+It also updates the graph state with the new UI message.
+
+Args:
+    name: Name of the UI component to render.
+    props: Properties to pass to the UI component.
+    id: Optional unique identifier for the UI message.
+        If not provided, a random UUID will be generated.
+    metadata: Optional additional metadata about the UI message.
+    message: Optional message object to associate with the UI message.
+    state_key: Key in the graph state where the UI messages are stored.
+        Defaults to "ui".
+
+Returns:
+    The created UI message.
+
+Example:
+
+.. code-block:: python
+
+    push_ui_message(
+        name="component-name",
+        props={"content": "Hello world"},
+    )"""
+def push_ui_message(
+    name: str,
+    props: dict[str, Any],
+    *,
+    id: Optional[str] = None,
+    metadata: Optional[dict[str, Any]] = None,
+    message: Optional[AnyMessage] = None,
+    state_key: str = "ui",
+) -> UIMessage:
+    """Push a new UI message to update the UI state.
+
+    This function creates and sends a UI message that will be rendered in the UI.
+    It also updates the graph state with the new UI message.
+
+    Args:
+        name: Name of the UI component to render.
+        props: Properties to pass to the UI component.
+        id: Optional unique identifier for the UI message.
+            If not provided, a random UUID will be generated.
+        metadata: Optional additional metadata about the UI message.
+        message: Optional message object to associate with the UI message.
+        state_key: Key in the graph state where the UI messages are stored.
+            Defaults to "ui".
+
+    Returns:
+        The created UI message.
+
+    Example:
+
+    .. code-block:: python
+
+        push_ui_message(
+            name="component-name",
+            props={"content": "Hello world"},
+        )
+
+    """
+    writer = get_stream_writer()
+    config = get_config()
+
+    message_id = None
+    if message:
+        if isinstance(message, dict) and "id" in message:
+            message_id = message.get("id")
+        elif hasattr(message, "id"):
+            message_id = message.id
+
+    evt: UIMessage = {
+        "type": "ui",
+        "id": id or str(uuid4()),
+        "name": name,
+        "props": props,
+        "metadata": {
+            **(config.get("metadata") or {}),
+            "tags": config.get("tags", None),
+            "name": config.get("run_name", None),
+            "run_id": config.get("run_id", None),
+            **(metadata or {}),
+            **({"message_id": message_id} if message_id else {}),
+        },
+    }
+
+    writer(evt)
+    config[CONF][CONFIG_KEY_SEND]([(state_key, evt)])
+
+    return evt

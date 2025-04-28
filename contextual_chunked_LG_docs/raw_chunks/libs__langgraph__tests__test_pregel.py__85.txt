@@ -1,0 +1,8 @@
+def test_invoke_two_processes_no_in(mocker: MockerFixture) -> None:
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+
+    one = Channel.subscribe_to("between") | add_one | Channel.write_to("output")
+    two = Channel.subscribe_to("between") | add_one
+
+    with pytest.raises(TypeError):
+        Pregel(nodes={"one": one, "two": two})

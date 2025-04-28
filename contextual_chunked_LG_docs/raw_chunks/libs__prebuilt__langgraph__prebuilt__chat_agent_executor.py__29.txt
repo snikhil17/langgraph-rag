@@ -1,0 +1,6 @@
+def _get_state_value(state: StateSchema, key: str, default: Any = None) -> Any:
+    return (
+        state.get(key, default)
+        if isinstance(state, dict)
+        else getattr(state, key, default)
+    )

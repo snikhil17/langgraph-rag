@@ -1,0 +1,59 @@
+def test__infer_handled_types() -> None:
+    def handle(e):  # type: ignore
+        return ""
+
+    def handle2(e: Exception) -> str:
+        return ""
+
+    def handle3(e: Union[ValueError, ToolException]) -> str:
+        return ""
+
+    class Handler:
+        def handle(self, e: ValueError) -> str:
+            return ""
+
+    handle4 = Handler().handle
+
+    def handle5(e: Union[Union[TypeError, ValueError], ToolException]):
+        return ""
+
+    expected: tuple = (Exception,)
+    actual = _infer_handled_types(handle)
+    assert expected == actual
+
+    expected = (Exception,)
+    actual = _infer_handled_types(handle2)
+    assert expected == actual
+
+    expected = (ValueError, ToolException)
+    actual = _infer_handled_types(handle3)
+    assert expected == actual
+
+    expected = (ValueError,)
+    actual = _infer_handled_types(handle4)
+    assert expected == actual
+
+    expected = (TypeError, ValueError, ToolException)
+    actual = _infer_handled_types(handle5)
+    assert expected == actual
+
+    with pytest.raises(ValueError):
+
+        def handler(e: str):
+            return ""
+
+        _infer_handled_types(handler)
+
+    with pytest.raises(ValueError):
+
+        def handler(e: list[Exception]):
+            return ""
+
+        _infer_handled_types(handler)
+
+    with pytest.raises(ValueError):
+
+        def handler(e: Union[str, int]):
+            return ""
+
+        _infer_handled_types(handler)

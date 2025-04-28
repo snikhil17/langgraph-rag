@@ -1,0 +1,14 @@
+"""Item with an optional relevance score from search operations.
+
+Attributes:
+    score (Optional[float]): Relevance/similarity score. Included when
+        searching a compatible store with a natural language query."""
+class SearchItem(Item, total=False):
+    """Item with an optional relevance score from search operations.
+
+    Attributes:
+        score (Optional[float]): Relevance/similarity score. Included when
+            searching a compatible store with a natural language query.
+    """
+
+    score: Optional[float]

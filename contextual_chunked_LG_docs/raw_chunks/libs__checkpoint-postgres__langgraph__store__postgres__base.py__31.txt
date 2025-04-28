@@ -1,0 +1,569 @@
+"""Postgres-backed store with optional vector search using pgvector.
+
+!!! example "Examples"
+    Basic setup and usage:
+    ```python
+    from langgraph.store.postgres import PostgresStore
+    from psycopg import Connection
+
+    conn_string = "postgresql://user:pass@localhost:5432/dbname"
+
+    # Using direct connection
+    with Connection.connect(conn_string) as conn:
+        store = PostgresStore(conn)
+        store.setup() # Run migrations. Done once
+
+        # Store and retrieve data
+        store.put(("users", "123"), "prefs", {"theme": "dark"})
+        item = store.get(("users", "123"), "prefs")
+    ```
+
+    Or using the convenient from_conn_string helper:
+    ```python
+    from langgraph.store.postgres import PostgresStore
+
+    conn_string = "postgresql://user:pass@localhost:5432/dbname"
+
+    with PostgresStore.from_conn_string(conn_string) as store:
+        store.setup()
+
+        # Store and retrieve data
+        store.put(("users", "123"), "prefs", {"theme": "dark"})
+        item = store.get(("users", "123"), "prefs")
+    ```
+
+    Vector search using LangChain embeddings:
+    ```python
+    from langchain.embeddings import init_embeddings
+    from langgraph.store.postgres import PostgresStore
+
+    conn_string = "postgresql://user:pass@localhost:5432/dbname"
+
+    with PostgresStore.from_conn_string(
+        conn_string,
+        index={
+            "dims": 1536,
+            "embed": init_embeddings("openai:text-embedding-3-small"),
+            "fields": ["text"]  # specify which fields to embed. Default is the whole serialized value
+        }
+    ) as store:
+        store.setup() # Do this once to run migrations
+
+        # Store documents
+        store.put(("docs",), "doc1", {"text": "Python tutorial"})
+        store.put(("docs",), "doc2", {"text": "TypeScript guide"})
+        store.put(("docs",), "doc2", {"text": "Other guide"}, index=False) # don't index
+
+        # Search by similarity
+        results = store.search(("docs",), query="programming guides", limit=2)
+    ```
+
+Note:
+    Semantic search is disabled by default. You can enable it by providing an `index` configuration
+    when creating the store. Without this configuration, all `index` arguments passed to
+    `put` or `aput`will have no effect.
+
+Warning:
+    Make sure to call `setup()` before first use to create necessary tables and indexes.
+    The pgvector extension must be available to use vector search.
+
+Note:
+    If you provide a TTL configuration, you must explicitly call `start_ttl_sweeper()` to begin
+    the background thread that removes expired items. Call `stop_ttl_sweeper()` to properly
+    clean up resources when you're done with the store."""
+class PostgresStore(BaseStore, BasePostgresStore[_pg_internal.Conn]):
+    """Postgres-backed store with optional vector search using pgvector.
+
+    !!! example "Examples"
+        Basic setup and usage:
+        ```python
+        from langgraph.store.postgres import PostgresStore
+        from psycopg import Connection
+
+        conn_string = "postgresql://user:pass@localhost:5432/dbname"
+
+        # Using direct connection
+        with Connection.connect(conn_string) as conn:
+            store = PostgresStore(conn)
+            store.setup() # Run migrations. Done once
+
+            # Store and retrieve data
+            store.put(("users", "123"), "prefs", {"theme": "dark"})
+            item = store.get(("users", "123"), "prefs")
+        ```
+
+        Or using the convenient from_conn_string helper:
+        ```python
+        from langgraph.store.postgres import PostgresStore
+
+        conn_string = "postgresql://user:pass@localhost:5432/dbname"
+
+        with PostgresStore.from_conn_string(conn_string) as store:
+            store.setup()
+
+            # Store and retrieve data
+            store.put(("users", "123"), "prefs", {"theme": "dark"})
+            item = store.get(("users", "123"), "prefs")
+        ```
+
+        Vector search using LangChain embeddings:
+        ```python
+        from langchain.embeddings import init_embeddings
+        from langgraph.store.postgres import PostgresStore
+
+        conn_string = "postgresql://user:pass@localhost:5432/dbname"
+
+        with PostgresStore.from_conn_string(
+            conn_string,
+            index={
+                "dims": 1536,
+                "embed": init_embeddings("openai:text-embedding-3-small"),
+                "fields": ["text"]  # specify which fields to embed. Default is the whole serialized value
+            }
+        ) as store:
+            store.setup() # Do this once to run migrations
+
+            # Store documents
+            store.put(("docs",), "doc1", {"text": "Python tutorial"})
+            store.put(("docs",), "doc2", {"text": "TypeScript guide"})
+            store.put(("docs",), "doc2", {"text": "Other guide"}, index=False) # don't index
+
+            # Search by similarity
+            results = store.search(("docs",), query="programming guides", limit=2)
+        ```
+
+    Note:
+        Semantic search is disabled by default. You can enable it by providing an `index` configuration
+        when creating the store. Without this configuration, all `index` arguments passed to
+        `put` or `aput`will have no effect.
+
+    Warning:
+        Make sure to call `setup()` before first use to create necessary tables and indexes.
+        The pgvector extension must be available to use vector search.
+
+    Note:
+        If you provide a TTL configuration, you must explicitly call `start_ttl_sweeper()` to begin
+        the background thread that removes expired items. Call `stop_ttl_sweeper()` to properly
+        clean up resources when you're done with the store.
+
+    """
+
+    __slots__ = (
+        "_deserializer",
+        "pipe",
+        "lock",
+        "supports_pipeline",
+        "index_config",
+        "embeddings",
+        "_ttl_sweeper_thread",
+        "_ttl_stop_event",
+    )
+    supports_ttl: bool = True
+
+    def __init__(
+        self,
+        conn: _pg_internal.Conn,
+        *,
+        pipe: Optional[Pipeline] = None,
+        deserializer: Optional[
+            Callable[[Union[bytes, orjson.Fragment]], dict[str, Any]]
+        ] = None,
+        index: Optional[PostgresIndexConfig] = None,
+        ttl: Optional[TTLConfig] = None,
+    ) -> None:
+        super().__init__()
+        self._deserializer = deserializer
+        self.conn = conn
+        self.pipe = pipe
+        self.supports_pipeline = Capabilities().has_pipeline()
+        self.lock = threading.Lock()
+        self.index_config = index
+        if self.index_config:
+            self.embeddings, self.index_config = _ensure_index_config(self.index_config)
+        else:
+            self.embeddings = None
+        self.ttl_config = ttl
+        self._ttl_sweeper_thread: Optional[threading.Thread] = None
+        self._ttl_stop_event = threading.Event()
+
+    @classmethod
+    @contextmanager
+    def from_conn_string(
+        cls,
+        conn_string: str,
+        *,
+        pipeline: bool = False,
+        pool_config: Optional[PoolConfig] = None,
+        index: Optional[PostgresIndexConfig] = None,
+        ttl: Optional[TTLConfig] = None,
+    ) -> Iterator["PostgresStore"]:
+        """Create a new PostgresStore instance from a connection string.
+
+        Args:
+            conn_string (str): The Postgres connection info string.
+            pipeline (bool): whether to use Pipeline
+            pool_config (Optional[PoolArgs]): Configuration for the connection pool.
+                If provided, will create a connection pool and use it instead of a single connection.
+                This overrides the `pipeline` argument.
+            index (Optional[PostgresIndexConfig]): The index configuration for the store.
+
+        Returns:
+            PostgresStore: A new PostgresStore instance.
+        """
+        if pool_config is not None:
+            pc = pool_config.copy()
+            with cast(
+                ConnectionPool[Connection[DictRow]],
+                ConnectionPool(
+                    conn_string,
+                    min_size=pc.pop("min_size", 1),
+                    max_size=pc.pop("max_size", None),
+                    kwargs={
+                        "autocommit": True,
+                        "prepare_threshold": 0,
+                        "row_factory": dict_row,
+                        **(pc.pop("kwargs", None) or {}),
+                    },
+                    **cast(dict, pc),
+                ),
+            ) as pool:
+                yield cls(conn=pool, index=index, ttl=ttl)
+        else:
+            with Connection.connect(
+                conn_string, autocommit=True, prepare_threshold=0, row_factory=dict_row
+            ) as conn:
+                if pipeline:
+                    with conn.pipeline() as pipe:
+                        yield cls(conn, pipe=pipe, index=index, ttl=ttl)
+                else:
+                    yield cls(conn, index=index, ttl=ttl)
+
+    def sweep_ttl(self) -> int:
+        """Delete expired store items based on TTL.
+
+        Returns:
+            int: The number of deleted items.
+        """
+        with self._cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM store
+                WHERE expires_at IS NOT NULL AND expires_at < NOW()
+                """
+            )
+            deleted_count = cur.rowcount
+            return deleted_count
+
+    def start_ttl_sweeper(
+        self, sweep_interval_minutes: Optional[int] = None
+    ) -> concurrent.futures.Future[None]:
+        """Periodically delete expired store items based on TTL.
+
+        Returns:
+            Future that can be waited on or cancelled.
+        """
+        if not self.ttl_config:
+            future: concurrent.futures.Future[None] = concurrent.futures.Future()
+            future.set_result(None)
+            return future
+
+        if self._ttl_sweeper_thread and self._ttl_sweeper_thread.is_alive():
+            logger.info("TTL sweeper thread is already running")
+            # Return a future that can be used to cancel the existing thread
+            future = concurrent.futures.Future()
+            future.add_done_callback(
+                lambda f: self._ttl_stop_event.set() if f.cancelled() else None
+            )
+            return future
+
+        self._ttl_stop_event.clear()
+
+        interval = float(
+            sweep_interval_minutes or self.ttl_config.get("sweep_interval_minutes") or 5
+        )
+        logger.info(f"Starting store TTL sweeper with interval {interval} minutes")
+
+        future = concurrent.futures.Future()
+
+        def _sweep_loop() -> None:
+            try:
+                while not self._ttl_stop_event.is_set():
+                    if self._ttl_stop_event.wait(interval * 60):
+                        break
+
+                    try:
+                        expired_items = self.sweep_ttl()
+                        if expired_items > 0:
+                            logger.info(f"Store swept {expired_items} expired items")
+                    except Exception as exc:
+                        logger.exception(
+                            "Store TTL sweep iteration failed", exc_info=exc
+                        )
+                future.set_result(None)
+            except Exception as exc:
+                future.set_exception(exc)
+
+        thread = threading.Thread(target=_sweep_loop, daemon=True, name="ttl-sweeper")
+        self._ttl_sweeper_thread = thread
+        thread.start()
+
+        future.add_done_callback(
+            lambda f: self._ttl_stop_event.set() if f.cancelled() else None
+        )
+        return future
+
+    def stop_ttl_sweeper(self, timeout: Optional[float] = None) -> bool:
+        """Stop the TTL sweeper thread if it's running.
+
+        Args:
+            timeout: Maximum time to wait for the thread to stop, in seconds.
+                If None, wait indefinitely.
+
+        Returns:
+            bool: True if the thread was successfully stopped or wasn't running,
+                False if the timeout was reached before the thread stopped.
+        """
+        if not self._ttl_sweeper_thread or not self._ttl_sweeper_thread.is_alive():
+            return True
+
+        logger.info("Stopping TTL sweeper thread")
+        self._ttl_stop_event.set()
+
+        self._ttl_sweeper_thread.join(timeout)
+        success = not self._ttl_sweeper_thread.is_alive()
+
+        if success:
+            self._ttl_sweeper_thread = None
+            logger.info("TTL sweeper thread stopped")
+        else:
+            logger.warning("Timed out waiting for TTL sweeper thread to stop")
+
+        return success
+
+    def __del__(self) -> None:
+        """Ensure the TTL sweeper thread is stopped when the object is garbage collected."""
+        if hasattr(self, "_ttl_stop_event") and hasattr(self, "_ttl_sweeper_thread"):
+            self.stop_ttl_sweeper(timeout=0.1)
+
+    @contextmanager
+    def _cursor(self, *, pipeline: bool = False) -> Iterator[Cursor[DictRow]]:
+        """Create a database cursor as a context manager.
+
+        Args:
+            pipeline (bool): whether to use pipeline for the DB operations inside the context manager.
+                Will be applied regardless of whether the PostgresStore instance was initialized with a pipeline.
+                If pipeline mode is not supported, will fall back to using transaction context manager.
+        """
+        with _pg_internal.get_connection(self.conn) as conn:
+            if self.pipe:
+                # a connection in pipeline mode can be used concurrently
+                # in multiple threads/coroutines, but only one cursor can be
+                # used at a time
+                try:
+                    with conn.cursor(binary=True, row_factory=dict_row) as cur:
+                        yield cur
+                finally:
+                    if pipeline:
+                        self.pipe.sync()
+            elif pipeline:
+                # a connection not in pipeline mode can only be used by one
+                # thread/coroutine at a time, so we acquire a lock
+                if self.supports_pipeline:
+                    with (
+                        self.lock,
+                        conn.pipeline(),
+                        conn.cursor(binary=True, row_factory=dict_row) as cur,
+                    ):
+                        yield cur
+                else:
+                    with (
+                        self.lock,
+                        conn.transaction(),
+                        conn.cursor(binary=True, row_factory=dict_row) as cur,
+                    ):
+                        yield cur
+            else:
+                with conn.cursor(binary=True, row_factory=dict_row) as cur:
+                    yield cur
+
+    def batch(self, ops: Iterable[Op]) -> list[Result]:
+        grouped_ops, num_ops = _group_ops(ops)
+        results: list[Result] = [None] * num_ops
+
+        with self._cursor(pipeline=True) as cur:
+            if GetOp in grouped_ops:
+                self._batch_get_ops(
+                    cast(Sequence[tuple[int, GetOp]], grouped_ops[GetOp]), results, cur
+                )
+
+            if SearchOp in grouped_ops:
+                self._batch_search_ops(
+                    cast(Sequence[tuple[int, SearchOp]], grouped_ops[SearchOp]),
+                    results,
+                    cur,
+                )
+
+            if ListNamespacesOp in grouped_ops:
+                self._batch_list_namespaces_ops(
+                    cast(
+                        Sequence[tuple[int, ListNamespacesOp]],
+                        grouped_ops[ListNamespacesOp],
+                    ),
+                    results,
+                    cur,
+                )
+            if PutOp in grouped_ops:
+                self._batch_put_ops(
+                    cast(Sequence[tuple[int, PutOp]], grouped_ops[PutOp]), cur
+                )
+
+        return results
+
+    def _batch_get_ops(
+        self,
+        get_ops: Sequence[tuple[int, GetOp]],
+        results: list[Result],
+        cur: Cursor[DictRow],
+    ) -> None:
+        for query, params, namespace, items in self._get_batch_GET_ops_queries(get_ops):
+            cur.execute(query, params)
+            rows = cast(list[Row], cur.fetchall())
+            key_to_row = {row["key"]: row for row in rows}
+            for idx, key in items:
+                row = key_to_row.get(key)
+                if row:
+                    results[idx] = _row_to_item(
+                        namespace, row, loader=self._deserializer
+                    )
+                else:
+                    results[idx] = None
+
+    def _batch_put_ops(
+        self,
+        put_ops: Sequence[tuple[int, PutOp]],
+        cur: Cursor[DictRow],
+    ) -> None:
+        queries, embedding_request = self._prepare_batch_PUT_queries(put_ops)
+        if embedding_request:
+            if self.embeddings is None:
+                # Should not get here since the embedding config is required
+                # to return an embedding_request above
+                raise ValueError(
+                    "Embedding configuration is required for vector operations "
+                    f"(for semantic search). "
+                    f"Please provide an Embeddings when initializing the {self.__class__.__name__}."
+                )
+            query, txt_params = embedding_request
+            # Update the params to replace the raw text with the vectors
+            vectors = self.embeddings.embed_documents(
+                [param[-1] for param in txt_params]
+            )
+            queries.append(
+                (
+                    query,
+                    [
+                        p
+                        for (ns, k, pathname, _), vector in zip(txt_params, vectors)
+                        for p in (ns, k, pathname, vector)
+                    ],
+                )
+            )
+
+        for query, params in queries:
+            cur.execute(query, params)
+
+    def _batch_search_ops(
+        self,
+        search_ops: Sequence[tuple[int, SearchOp]],
+        results: list[Result],
+        cur: Cursor[DictRow],
+    ) -> None:
+        queries, embedding_requests = self._prepare_batch_search_queries(search_ops)
+
+        if embedding_requests and self.embeddings:
+            embeddings = self.embeddings.embed_documents(
+                [query for _, query in embedding_requests]
+            )
+            for (idx, _), embedding in zip(embedding_requests, embeddings):
+                _paramslist = queries[idx][1]
+                for i in range(len(_paramslist)):
+                    if _paramslist[i] is PLACEHOLDER:
+                        _paramslist[i] = embedding
+
+        for (idx, _), (query, params) in zip(search_ops, queries):
+            cur.execute(query, params)
+            rows = cast(list[Row], cur.fetchall())
+            results[idx] = [
+                _row_to_search_item(
+                    _decode_ns_bytes(row["prefix"]), row, loader=self._deserializer
+                )
+                for row in rows
+            ]
+
+    def _batch_list_namespaces_ops(
+        self,
+        list_ops: Sequence[tuple[int, ListNamespacesOp]],
+        results: list[Result],
+        cur: Cursor[DictRow],
+    ) -> None:
+        for (query, params), (idx, _) in zip(
+            self._get_batch_list_namespaces_queries(list_ops), list_ops
+        ):
+            cur.execute(query, params)
+            results[idx] = [_decode_ns_bytes(row["truncated_prefix"]) for row in cur]
+
+    async def abatch(self, ops: Iterable[Op]) -> list[Result]:
+        return await asyncio.get_running_loop().run_in_executor(None, self.batch, ops)
+
+    def setup(self) -> None:
+        """Set up the store database.
+
+        This method creates the necessary tables in the Postgres database if they don't
+        already exist and runs database migrations. It MUST be called directly by the user
+        the first time the store is used.
+        """
+
+        def _get_version(cur: Cursor[dict[str, Any]], table: str) -> int:
+            cur.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {table} (
+                    v INTEGER PRIMARY KEY
+                )
+            """
+            )
+            cur.execute(f"SELECT v FROM {table} ORDER BY v DESC LIMIT 1")
+            row = cast(dict, cur.fetchone())
+            if row is None:
+                version = -1
+            else:
+                version = row["v"]
+            return version
+
+        with self._cursor() as cur:
+            version = _get_version(cur, table="store_migrations")
+            for v, sql in enumerate(self.MIGRATIONS[version + 1 :], start=version + 1):
+                try:
+                    cur.execute(sql)
+                    cur.execute("INSERT INTO store_migrations (v) VALUES (%s)", (v,))
+                except Exception as e:
+                    logger.error(
+                        f"Failed to apply migration {v}.\nSql={sql}\nError={e}"
+                    )
+                    raise
+
+            if self.index_config:
+                version = _get_version(cur, table="vector_migrations")
+                for v, migration in enumerate(
+                    self.VECTOR_MIGRATIONS[version + 1 :], start=version + 1
+                ):
+                    if migration.condition and not migration.condition(self):
+                        continue
+                    sql = migration.sql
+                    if migration.params:
+                        params = {
+                            k: v(self) if v is not None and callable(v) else v
+                            for k, v in migration.params.items()
+                        }
+                        sql = sql % params
+                    cur.execute(sql)
+                    cur.execute("INSERT INTO vector_migrations (v) VALUES (%s)", (v,))

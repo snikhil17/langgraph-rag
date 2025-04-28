@@ -1,0 +1,15 @@
+"""Configure a default TTL for checkpointed data within threads."""
+class ThreadTTLConfig(TypedDict, total=False):
+
+
+    strategy: Literal["delete"]
+    """Strategy to use for deleting checkpointed data.
+
+    Choices:
+      - "delete": Delete all checkpoints for a thread after TTL expires.
+    """
+    default_ttl: Optional[float]
+    """Default TTL (time-to-live) in minutes for checkpointed data."""
+    sweep_interval_minutes: Optional[int]
+    """Interval in minutes between sweep iterations.
+    If omitted, a default interval will be used (typically ~ 5 minutes)."""

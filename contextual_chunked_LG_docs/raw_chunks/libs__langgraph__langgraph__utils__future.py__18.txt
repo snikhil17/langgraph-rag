@@ -1,0 +1,34 @@
+def _ensure_future(
+    coro_or_future: Union[Coroutine[None, None, T], Awaitable[T]],
+    *,
+    loop: asyncio.AbstractEventLoop,
+    name: Optional[str] = None,
+    context: Optional[contextvars.Context] = None,
+    lazy: bool = True,
+) -> asyncio.Task[T]:
+    called_wrap_awaitable = False
+    if not asyncio.iscoroutine(coro_or_future):
+        if inspect.isawaitable(coro_or_future):
+            coro_or_future = cast(
+                Coroutine[None, None, T], _wrap_awaitable(coro_or_future)
+            )
+            called_wrap_awaitable = True
+        else:
+            raise TypeError(
+                "An asyncio.Future, a coroutine or an awaitable is required."
+                f" Got {type(coro_or_future).__name__} instead."
+            )
+
+    try:
+        if CONTEXT_NOT_SUPPORTED:
+            return loop.create_task(coro_or_future, name=name)
+        elif EAGER_NOT_SUPPORTED or lazy:
+            return loop.create_task(coro_or_future, name=name, context=context)
+        else:
+            return asyncio.eager_task_factory(
+                loop, coro_or_future, name=name, context=context
+            )
+    except RuntimeError:
+        if not called_wrap_awaitable:
+            coro_or_future.close()
+        raise

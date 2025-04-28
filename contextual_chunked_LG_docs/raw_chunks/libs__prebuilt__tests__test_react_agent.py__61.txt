@@ -1,0 +1,4 @@
+def test_inspect_react() -> None:
+    model = FakeToolCallingModel(tool_calls=[])
+    agent = create_react_agent(model, [])
+    inspect.getclosurevars(agent.nodes["agent"].bound.func)

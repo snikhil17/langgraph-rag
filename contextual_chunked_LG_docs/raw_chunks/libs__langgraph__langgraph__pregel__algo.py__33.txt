@@ -1,0 +1,16 @@
+"""Function injected under CONFIG_KEY_SEND in task config, to write to channels.
+Validates writes and forwards them to `commit` function."""
+def local_write(
+    commit: Callable[[Sequence[tuple[str, Any]]], None],
+    process_keys: Iterable[str],
+    writes: Sequence[tuple[str, Any]],
+) -> None:
+    """Function injected under CONFIG_KEY_SEND in task config, to write to channels.
+    Validates writes and forwards them to `commit` function."""
+    for chan, value in writes:
+        if chan in (PUSH, TASKS) and value is not None:
+            if not isinstance(value, Send):
+                raise InvalidUpdateError(f"Expected Send, got {value}")
+            if value.node not in process_keys:
+                raise InvalidUpdateError(f"Invalid node name {value.node} in packet")
+    commit(writes)

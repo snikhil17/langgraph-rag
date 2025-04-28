@@ -1,0 +1,24 @@
+class _CronsOn(
+    _ResourceOn[
+        types.CronsCreate,
+        types.CronsRead,
+        types.CronsUpdate,
+        types.CronsDelete,
+        types.CronsSearch,
+    ]
+):
+    value = type[
+        typing.Union[
+            types.CronsCreate,
+            types.CronsRead,
+            types.CronsUpdate,
+            types.CronsDelete,
+            types.CronsSearch,
+        ]
+    ]
+
+    Create = types.CronsCreate
+    Read = types.CronsRead
+    Update = types.CronsUpdate
+    Delete = types.CronsDelete
+    Search = types.CronsSearch

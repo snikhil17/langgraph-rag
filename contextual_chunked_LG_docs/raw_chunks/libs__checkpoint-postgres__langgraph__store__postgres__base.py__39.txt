@@ -1,0 +1,7 @@
+def _group_ops(ops: Iterable[Op]) -> tuple[dict[type, list[tuple[int, Op]]], int]:
+    grouped_ops: dict[type, list[tuple[int, Op]]] = defaultdict(list)
+    tot = 0
+    for idx, op in enumerate(ops):
+        grouped_ops[type(op)].append((idx, op))
+        tot += 1
+    return grouped_ops, tot

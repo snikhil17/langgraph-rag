@@ -1,0 +1,4 @@
+class Version(NamedTuple):
+    major: int
+    minor: int
+    patch: int

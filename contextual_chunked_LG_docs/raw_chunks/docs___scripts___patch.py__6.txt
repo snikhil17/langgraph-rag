@@ -1,0 +1,56 @@
+"""Patch the request method of urllib3 to avoid type errors when using vcrpy.
+
+In concurrent workloads (such as the tracing background queue), the
+connection pool can get in a state where an HTTPConnection is created
+before vcrpy patches the HTTPConnection class. In urllib3 >= 2.0 this isn't
+a problem since they use the proper super().request(...) syntax, but in older
+versions, super(HTTPConnection, self).request is used, resulting in a TypeError
+since self is no longer a subclass of "HTTPConnection" (which at this point
+is vcr.stubs.VCRConnection).
+
+This method patches the class to fix the super() syntax to avoid mixed inheritance.
+In the case of the LangSmith tracing logic, it doesn't really matter since we always
+exclude cache checks for calls to LangSmith.
+
+The patch is only applied for urllib3 versions older than 2.0."""
+def patch_urllib3():
+    """Patch the request method of urllib3 to avoid type errors when using vcrpy.
+
+    In concurrent workloads (such as the tracing background queue), the
+    connection pool can get in a state where an HTTPConnection is created
+    before vcrpy patches the HTTPConnection class. In urllib3 >= 2.0 this isn't
+    a problem since they use the proper super().request(...) syntax, but in older
+    versions, super(HTTPConnection, self).request is used, resulting in a TypeError
+    since self is no longer a subclass of "HTTPConnection" (which at this point
+    is vcr.stubs.VCRConnection).
+
+    This method patches the class to fix the super() syntax to avoid mixed inheritance.
+    In the case of the LangSmith tracing logic, it doesn't really matter since we always
+    exclude cache checks for calls to LangSmith.
+
+    The patch is only applied for urllib3 versions older than 2.0.
+    """
+    global _PATCHED
+    if _PATCHED:
+        return
+    from packaging import version
+
+    if version.parse(urllib3version) >= version.parse("2.0"):
+        _PATCHED = True
+        return
+
+    # Lookup the parent class and its request method
+    parent_class = connection.HTTPConnection.__bases__[0]
+    parent_request = parent_class.request
+
+    def new_request(self, *args, **kwargs):
+        """Handle parent request.
+
+        This method binds the parent's request method to self and then
+        calls our modified request function.
+        """
+        self._parent_request = functools.partial(parent_request, self)
+        return request(self, *args, **kwargs)
+
+    connection.HTTPConnection.request = new_request
+    _PATCHED = True

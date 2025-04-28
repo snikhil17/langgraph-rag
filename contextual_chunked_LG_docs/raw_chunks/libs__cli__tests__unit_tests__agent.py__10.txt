@@ -1,0 +1,7 @@
+def should_continue(state):
+    messages = state["messages"]
+    last_message = messages[-1]
+    if last_message.content == "end":
+        return END
+    else:
+        return "tool"

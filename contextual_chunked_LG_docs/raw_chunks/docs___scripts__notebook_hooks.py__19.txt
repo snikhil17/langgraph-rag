@@ -1,0 +1,7 @@
+def on_page_markdown(markdown: str, page: Page, **kwargs: Dict[str, Any]):
+    return _on_page_markdown_with_config(
+        markdown,
+        page,
+        add_api_references=True,
+        **kwargs,
+    )

@@ -1,0 +1,21 @@
+"""A message type for removing UI components in LangGraph.
+
+This TypedDict represents a message that can be sent to remove a UI component
+from the current state.
+
+Attributes:
+    type: Literal type indicating this is a remove-ui message.
+    id: Unique identifier of the UI message to remove."""
+class RemoveUIMessage(TypedDict):
+    """A message type for removing UI components in LangGraph.
+
+    This TypedDict represents a message that can be sent to remove a UI component
+    from the current state.
+
+    Attributes:
+        type: Literal type indicating this is a remove-ui message.
+        id: Unique identifier of the UI message to remove.
+    """
+
+    type: Literal["remove-ui"]
+    id: str

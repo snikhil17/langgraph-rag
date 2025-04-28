@@ -1,0 +1,5 @@
+def _is_not_empty(value: Any) -> bool:
+    if isinstance(value, (list, tuple, dict)):
+        return len(value) > 0
+    else:
+        return value is not None

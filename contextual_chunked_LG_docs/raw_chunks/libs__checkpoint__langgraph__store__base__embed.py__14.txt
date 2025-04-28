@@ -1,0 +1,27 @@
+"""Check if a function is async.
+
+This includes both async def functions and classes with async __call__ methods.
+
+Args:
+    func: Function or callable object to check.
+
+Returns:
+    True if the function is async, False otherwise."""
+def _is_async_callable(
+    func: Any,
+) -> bool:
+    """Check if a function is async.
+
+    This includes both async def functions and classes with async __call__ methods.
+
+    Args:
+        func: Function or callable object to check.
+
+    Returns:
+        True if the function is async, False otherwise.
+    """
+    return (
+        asyncio.iscoroutinefunction(func)
+        or hasattr(func, "__call__")  # noqa: B004
+        and asyncio.iscoroutinefunction(func.__call__)
+    )

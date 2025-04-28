@@ -1,0 +1,6 @@
+"""Get imports from a code block."""
+def test_get_imports(code_block: str, expected_imports: list) -> None:
+
+    assert (
+        get_imports(code_block, "some_path") == expected_imports
+    ), f"Failed for code_block=`{code_block}`"

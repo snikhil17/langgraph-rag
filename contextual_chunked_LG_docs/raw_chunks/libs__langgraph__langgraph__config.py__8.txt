@@ -1,0 +1,2 @@
+def _no_op_stream_writer(c: Any) -> None:
+    pass

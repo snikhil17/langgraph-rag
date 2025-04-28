@@ -1,0 +1,46 @@
+"""Payload for creating a cron job.
+
+???+ example "Examples"
+    ```python
+    create_params = {
+        "payload": {"key": "value"},
+        "schedule": "0 0 * * *",
+        "cron_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "thread_id": UUID("123e4567-e89b-12d3-a456-426614174001"),
+        "user_id": "user123",
+        "end_time": datetime(2024, 3, 16, 10, 0, 0)
+    }
+    ```"""
+class CronsCreate(typing.TypedDict, total=False):
+    """Payload for creating a cron job.
+
+    ???+ example "Examples"
+        ```python
+        create_params = {
+            "payload": {"key": "value"},
+            "schedule": "0 0 * * *",
+            "cron_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "thread_id": UUID("123e4567-e89b-12d3-a456-426614174001"),
+            "user_id": "user123",
+            "end_time": datetime(2024, 3, 16, 10, 0, 0)
+        }
+        ```
+    """
+
+    payload: typing.Dict[str, typing.Any]
+    """Payload for the cron job."""
+
+    schedule: str
+    """Schedule for the cron job."""
+
+    cron_id: typing.Optional[UUID]
+    """typing.Optional unique identifier for the cron job."""
+
+    thread_id: typing.Optional[UUID]
+    """typing.Optional thread ID to use for this cron job."""
+
+    user_id: typing.Optional[str]
+    """typing.Optional user ID to use for this cron job."""
+
+    end_time: typing.Optional[datetime]
+    """typing.Optional end time for the cron job."""

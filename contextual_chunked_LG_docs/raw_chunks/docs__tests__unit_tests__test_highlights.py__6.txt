@@ -1,0 +1,3 @@
+def test_highlight_code_blocks_no_op() -> None:
+    assert _highlight_code_blocks(NO_OP_INPUT_1) == NO_OP_INPUT_1
+    assert _highlight_code_blocks(NO_OP_INPUT_2) == NO_OP_INPUT_2

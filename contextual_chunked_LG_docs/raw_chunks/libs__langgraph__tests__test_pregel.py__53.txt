@@ -1,0 +1,109 @@
+def test_graph_validation() -> None:
+    def logic(inp: str) -> str:
+        return ""
+
+    workflow = Graph()
+    workflow.add_node("agent", logic)
+    workflow.set_entry_point("agent")
+    workflow.set_finish_point("agent")
+    assert workflow.compile(), "valid graph"
+
+    # Accept a dead-end
+    workflow = Graph()
+    workflow.add_node("agent", logic)
+    workflow.set_entry_point("agent")
+    workflow.compile()
+
+    workflow = Graph()
+    workflow.add_node("agent", logic)
+    workflow.set_finish_point("agent")
+    with pytest.raises(ValueError, match="must have an entrypoint"):
+        workflow.compile()
+
+    workflow = Graph()
+    workflow.add_node("agent", logic)
+    workflow.add_node("tools", logic)
+    workflow.set_entry_point("agent")
+    workflow.add_conditional_edges("agent", logic, {"continue": "tools", "exit": END})
+    workflow.add_edge("tools", "agent")
+    assert workflow.compile(), "valid graph"
+
+    workflow = Graph()
+    workflow.add_node("agent", logic)
+    workflow.add_node("tools", logic)
+    workflow.set_entry_point("tools")
+    workflow.add_conditional_edges("agent", logic, {"continue": "tools", "exit": END})
+    workflow.add_edge("tools", "agent")
+    assert workflow.compile(), "valid graph"
+
+    workflow = Graph()
+    workflow.set_entry_point("tools")
+    workflow.add_conditional_edges("agent", logic, {"continue": "tools", "exit": END})
+    workflow.add_edge("tools", "agent")
+    workflow.add_node("agent", logic)
+    workflow.add_node("tools", logic)
+    assert workflow.compile(), "valid graph"
+
+    workflow = Graph()
+    workflow.set_entry_point("tools")
+    workflow.add_conditional_edges(
+        "agent", logic, {"continue": "tools", "exit": END, "hmm": "extra"}
+    )
+    workflow.add_edge("tools", "agent")
+    workflow.add_node("agent", logic)
+    workflow.add_node("tools", logic)
+    with pytest.raises(ValueError, match="unknown"):  # extra is not defined
+        workflow.compile()
+
+    workflow = Graph()
+    workflow.set_entry_point("agent")
+    workflow.add_conditional_edges("agent", logic, {"continue": "tools", "exit": END})
+    workflow.add_edge("tools", "extra")
+    workflow.add_node("agent", logic)
+    workflow.add_node("tools", logic)
+    with pytest.raises(ValueError, match="unknown"):  # extra is not defined
+        workflow.compile()
+
+    workflow = Graph()
+    workflow.add_node("agent", logic)
+    workflow.add_node("tools", logic)
+    workflow.add_node("extra", logic)
+    workflow.set_entry_point("agent")
+    workflow.add_conditional_edges("agent", logic)
+    workflow.add_edge("tools", "agent")
+    # Accept, even though extra is dead-end
+    workflow.compile()
+
+    class State(TypedDict):
+        hello: str
+
+    graph = StateGraph(State)
+    graph.add_node("start", lambda x: x)
+    graph.add_edge("__start__", "start")
+    graph.add_edge("unknown", "start")
+    graph.add_edge("start", "__end__")
+    with pytest.raises(ValueError, match="Found edge starting at unknown node "):
+        graph.compile()
+
+    def bad_reducer(a): ...
+
+    class BadReducerState(TypedDict):
+        hello: Annotated[str, bad_reducer]
+
+    with pytest.raises(ValueError, match="Invalid reducer"):
+        StateGraph(BadReducerState)
+
+    def node_b(state: State) -> State:
+        return {"hello": "world"}
+
+    builder = StateGraph(State)
+    builder.add_node("a", node_b)
+    builder.add_node("b", node_b)
+    builder.add_node("c", node_b)
+    builder.set_entry_point("a")
+    builder.add_edge("a", "b")
+    builder.add_edge("a", "c")
+    graph = builder.compile()
+
+    with pytest.raises(InvalidUpdateError, match="At key 'hello'"):
+        graph.invoke({"hello": "there"})

@@ -1,0 +1,31 @@
+def test_pydantic_state_update_command() -> None:
+    from pydantic import BaseModel
+
+    class State(BaseModel):
+        foo: Optional[str]
+
+    def node_a(state: State) -> State:
+        return Command(update=State(foo=None))
+
+    graph = StateGraph(State).add_node(node_a).add_edge(START, "node_a").compile()
+    assert graph.invoke({"foo": ""}) == {"foo": None}
+
+    class State(BaseModel):
+        foo: Optional[str] = None
+        bar: Optional[str] = None
+
+    def node_a(state: State):
+        return State(foo="foo")
+
+    def node_b(state: State):
+        return Command(update=State(bar="bar"))
+
+    builder = StateGraph(State)
+    builder.add_node(node_a)
+    builder.add_node(node_b)
+    builder.add_edge(START, "node_a")
+    builder.add_edge("node_a", "node_b")
+    builder.add_edge("node_b", END)
+    graph = builder.compile()
+
+    assert graph.invoke(State()) == {"foo": "foo", "bar": "bar"}

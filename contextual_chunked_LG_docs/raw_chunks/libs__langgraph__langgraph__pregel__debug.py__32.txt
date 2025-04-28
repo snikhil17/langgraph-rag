@@ -1,0 +1,70 @@
+"""Apply writes / subgraph states to tasks to be returned in a StateSnapshot."""
+def tasks_w_writes(
+    tasks: Iterable[Union[PregelTask, PregelExecutableTask]],
+    pending_writes: Optional[list[PendingWrite]],
+    states: Optional[dict[str, Union[RunnableConfig, StateSnapshot]]],
+    output_keys: Union[str, Sequence[str]],
+) -> tuple[PregelTask, ...]:
+
+    pending_writes = pending_writes or []
+    out: list[PregelTask] = []
+    for task in tasks:
+        rtn = next(
+            (
+                val
+                for tid, chan, val in pending_writes
+                if tid == task.id and chan == RETURN
+            ),
+            MISSING,
+        )
+        out.append(
+            PregelTask(
+                task.id,
+                task.name,
+                task.path,
+                next(
+                    (
+                        exc
+                        for tid, n, exc in pending_writes
+                        if tid == task.id and n == ERROR
+                    ),
+                    None,
+                ),
+                tuple(
+                    v
+                    for tid, n, vv in pending_writes
+                    if tid == task.id and n == INTERRUPT
+                    for v in (vv if isinstance(vv, Sequence) else [vv])
+                ),
+                states.get(task.id) if states else None,
+                (
+                    rtn
+                    if rtn is not MISSING
+                    else next(
+                        (
+                            val
+                            for tid, chan, val in pending_writes
+                            if tid == task.id and chan == output_keys
+                        ),
+                        None,
+                    )
+                    if isinstance(output_keys, str)
+                    else {
+                        chan: val
+                        for tid, chan, val in pending_writes
+                        if tid == task.id
+                        and (
+                            chan == output_keys
+                            if isinstance(output_keys, str)
+                            else chan in output_keys
+                        )
+                    }
+                )
+                if any(
+                    w[0] == task.id and w[1] not in (ERROR, INTERRUPT)
+                    for w in pending_writes
+                )
+                else None,
+            )
+        )
+    return tuple(out)

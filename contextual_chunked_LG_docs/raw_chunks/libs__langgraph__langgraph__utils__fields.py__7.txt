@@ -1,0 +1,18 @@
+"""Check if a type is Optional."""
+def _is_optional_type(type_: Any) -> bool:
+
+
+    if hasattr(type_, "__origin__") and hasattr(type_, "__args__"):
+        origin = get_origin(type_)
+        if origin is Optional:
+            return True
+        if origin is Union:
+            return any(
+                arg is type(None) or _is_optional_type(arg) for arg in type_.__args__
+            )
+        if origin is Annotated:
+            return _is_optional_type(type_.__args__[0])
+        return origin is None
+    if hasattr(type_, "__bound__") and type_.__bound__ is not None:
+        return _is_optional_type(type_.__bound__)
+    return type_ is None

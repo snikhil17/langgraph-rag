@@ -1,0 +1,38 @@
+def test_config_to_docker_pyproject():
+    pyproject_str = """[project]
+name = "custom"
+version = "0.1"
+dependencies = ["langchain"]"""
+    pyproject_path = "tests/unit_tests/pyproject.toml"
+    with open(pyproject_path, "w") as f:
+        f.write(pyproject_str)
+
+    graphs = {"agent": "./graphs/agent.py:graph"}
+    actual_docker_stdin, additional_contexts = config_to_docker(
+        PATH_TO_CONFIG,
+        validate_config(
+            {
+                "dependencies": ["."],
+                "graphs": graphs,
+            }
+        ),
+        "langchain/langgraph-api",
+    )
+    os.remove(pyproject_path)
+    expected_docker_stdin = (
+        """FROM langchain/langgraph-api:3.11
+# -- Adding local package . --
+ADD . /deps/unit_tests
+# -- End of local package . --
+# -- Installing all local dependencies --
+RUN PYTHONDONTWRITEBYTECODE=1 pip install --no-cache-dir -c /api/constraints.txt -e /deps/*
+# -- End of local dependencies install --
+ENV LANGSERVE_GRAPHS='{"agent": "/deps/unit_tests/graphs/agent.py:graph"}'
+"""
+        + PIP_CLEANUP_LINES
+        + "\n"
+        + "WORKDIR /deps/unit_tests"
+        ""
+    )
+    assert clean_empty_lines(actual_docker_stdin) == expected_docker_stdin
+    assert additional_contexts == {}

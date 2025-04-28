@@ -1,0 +1,2 @@
+def loads(v: bytes) -> Any:
+    return SERIALIZER.loads(v)

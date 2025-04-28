@@ -1,0 +1,2 @@
+def dumps(v: Any) -> bytes:
+    return orjson.dumps(v, default=_default)

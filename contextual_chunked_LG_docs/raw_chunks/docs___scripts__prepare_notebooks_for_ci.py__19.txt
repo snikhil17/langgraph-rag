@@ -1,0 +1,7 @@
+def remove_mermaid_from_notebook(notebook: nbformat.NotebookNode) -> nbformat.NotebookNode:
+    for cell in notebook.cells:
+        if cell.cell_type != "code":
+            continue
+
+        cell.source = remove_mermaid(cell.source)
+    return notebook

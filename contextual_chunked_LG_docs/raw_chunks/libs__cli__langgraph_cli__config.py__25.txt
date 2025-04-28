@@ -1,0 +1,90 @@
+"""Validate a configuration dictionary."""
+def validate_config(config: Config) -> Config:
+
+
+    graphs = config.get("graphs", {})
+
+    some_node = any(_is_node_graph(spec) for spec in graphs.values())
+    some_python = any(not _is_node_graph(spec) for spec in graphs.values())
+
+    node_version = config.get(
+        "node_version", DEFAULT_NODE_VERSION if some_node else None
+    )
+    python_version = config.get(
+        "python_version", DEFAULT_PYTHON_VERSION if some_python else None
+    )
+
+    config = {
+        "node_version": node_version,
+        "python_version": python_version,
+        "pip_config_file": config.get("pip_config_file"),
+        "_INTERNAL_docker_tag": config.get("_INTERNAL_docker_tag"),
+        "dependencies": config.get("dependencies", []),
+        "dockerfile_lines": config.get("dockerfile_lines", []),
+        "graphs": config.get("graphs", {}),
+        "env": config.get("env", {}),
+        "store": config.get("store"),
+        "auth": config.get("auth"),
+        "http": config.get("http"),
+        "checkpointer": config.get("checkpointer"),
+        "ui": config.get("ui"),
+        "ui_config": config.get("ui_config"),
+    }
+
+    if config.get("node_version"):
+        node_version = config["node_version"]
+        try:
+            major = _parse_node_version(node_version)
+            min_major = _parse_node_version(MIN_NODE_VERSION)
+            if major < min_major:
+                raise click.UsageError(
+                    f"Node.js version {node_version} is not supported. "
+                    f"Minimum required version is {MIN_NODE_VERSION}."
+                )
+        except ValueError as e:
+            raise click.UsageError(str(e)) from None
+
+    if config.get("python_version"):
+        pyversion = config["python_version"]
+        if not pyversion.count(".") == 1 or not all(
+            part.isdigit() for part in pyversion.split("-")[0].split(".")
+        ):
+            raise click.UsageError(
+                f"Invalid Python version format: {pyversion}. "
+                "Use 'major.minor' format (e.g., '3.11'). "
+                "Patch version cannot be specified."
+            )
+        if _parse_version(pyversion) < _parse_version(MIN_PYTHON_VERSION):
+            raise click.UsageError(
+                f"Python version {pyversion} is not supported. "
+                f"Minimum required version is {MIN_PYTHON_VERSION}."
+            )
+
+        if not config["dependencies"]:
+            raise click.UsageError(
+                "No dependencies found in config. "
+                "Add at least one dependency to 'dependencies' list."
+            )
+
+    if not config["graphs"]:
+        raise click.UsageError(
+            "No graphs found in config. "
+            "Add at least one graph to 'graphs' dictionary."
+        )
+
+    # Validate auth config
+    if auth_conf := config.get("auth"):
+        if "path" in auth_conf:
+            if ":" not in auth_conf["path"]:
+                raise ValueError(
+                    f"Invalid auth.path format: '{auth_conf['path']}'. "
+                    "Must be in format './path/to/file.py:attribute_name'"
+                )
+    if http_conf := config.get("http"):
+        if "app" in http_conf:
+            if ":" not in http_conf["app"]:
+                raise ValueError(
+                    f"Invalid http.app format: '{http_conf['app']}'. "
+                    "Must be in format './path/to/file.py:attribute_name'"
+                )
+    return config

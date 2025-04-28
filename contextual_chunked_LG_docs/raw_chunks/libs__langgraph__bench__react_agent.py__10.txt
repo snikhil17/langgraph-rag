@@ -1,0 +1,47 @@
+def react_agent(n_tools: int, checkpointer: Optional[BaseCheckpointSaver]) -> Pregel:
+    class FakeFuntionChatModel(FakeMessagesListChatModel):
+        def bind_tools(self, functions: list):
+            return self
+
+        def _generate(
+            self,
+            messages: list[BaseMessage],
+            stop: Optional[list[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> ChatResult:
+            response = self.responses[self.i].copy()
+            if self.i < len(self.responses) - 1:
+                self.i += 1
+            else:
+                self.i = 0
+            generation = ChatGeneration(message=response)
+            return ChatResult(generations=[generation])
+
+    tool = StructuredTool.from_function(
+        lambda query: f"result for query: {query}" * 10,
+        name=str(uuid4()),
+        description="",
+    )
+
+    model = FakeFuntionChatModel(
+        responses=[
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": str(uuid4()),
+                        "name": tool.name,
+                        "args": {"query": str(uuid4()) * 100},
+                    }
+                ],
+                id=str(uuid4()),
+            )
+            for _ in range(n_tools)
+        ]
+        + [
+            AIMessage(content="answer" * 100, id=str(uuid4())),
+        ]
+    )
+
+    return create_react_agent(model, [tool], checkpointer=checkpointer)

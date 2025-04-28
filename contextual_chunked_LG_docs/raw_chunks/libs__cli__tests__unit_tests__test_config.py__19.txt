@@ -1,0 +1,38 @@
+def test_config_to_docker_end_to_end():
+    graphs = {"agent": "./graphs/agent.py:graph"}
+    actual_docker_stdin, additional_contexts = config_to_docker(
+        PATH_TO_CONFIG,
+        validate_config(
+            {
+                "python_version": "3.12",
+                "dependencies": ["./graphs/", "langchain", "langchain_openai"],
+                "graphs": graphs,
+                "pip_config_file": "pipconfig.txt",
+                "dockerfile_lines": ["ARG meow", "ARG foo"],
+            }
+        ),
+        "langchain/langgraph-api",
+    )
+    expected_docker_stdin = f"""FROM langchain/langgraph-api:3.12
+ARG meow
+ARG foo
+ADD pipconfig.txt /pipconfig.txt
+RUN PIP_CONFIG_FILE=/pipconfig.txt PYTHONDONTWRITEBYTECODE=1 pip install --no-cache-dir -c /api/constraints.txt langchain langchain_openai
+# -- Adding non-package dependency graphs --
+ADD ./graphs/ /deps/__outer_graphs/src
+RUN set -ex && \\
+    for line in '[project]' \\
+                'name = "graphs"' \\
+                'version = "0.1"' \\
+                '[tool.setuptools.package-data]' \\
+                '"*" = ["**/*"]'; do \\
+        echo "$line" >> /deps/__outer_graphs/pyproject.toml; \\
+    done
+# -- End of non-package dependency graphs --
+# -- Installing all local dependencies --
+RUN PIP_CONFIG_FILE=/pipconfig.txt PYTHONDONTWRITEBYTECODE=1 pip install --no-cache-dir -c /api/constraints.txt -e /deps/*
+# -- End of local dependencies install --
+ENV LANGSERVE_GRAPHS='{{"agent": "/deps/__outer_graphs/src/agent.py:graph"}}'
+{PIP_CLEANUP_LINES}"""
+    assert clean_empty_lines(actual_docker_stdin) == expected_docker_stdin
+    assert additional_contexts == {}

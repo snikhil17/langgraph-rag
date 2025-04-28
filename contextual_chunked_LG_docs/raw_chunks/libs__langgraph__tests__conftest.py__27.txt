@@ -1,0 +1,3 @@
+def checkpointer_sqlite():
+    with SqliteSaver.from_conn_string(":memory:") as checkpointer:
+        yield checkpointer

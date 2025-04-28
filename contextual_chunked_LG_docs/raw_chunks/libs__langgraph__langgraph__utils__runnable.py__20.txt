@@ -1,0 +1,18 @@
+"""Set the child Runnable config + tracing context.
+
+Args:
+    config (RunnableConfig): The config to set."""
+def _set_config_context(
+    config: RunnableConfig, run: Any = None
+) -> Token[Optional[RunnableConfig]]:
+    """Set the child Runnable config + tracing context.
+
+    Args:
+        config (RunnableConfig): The config to set.
+    """
+    config_token = var_child_runnable_config.set(config)
+    if run is not None:
+        from langsmith.run_helpers import _set_tracing_context
+
+        _set_tracing_context({"parent": run})
+    return config_token

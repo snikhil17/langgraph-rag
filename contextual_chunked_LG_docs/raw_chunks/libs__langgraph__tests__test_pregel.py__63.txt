@@ -1,0 +1,26 @@
+def test_invoke_single_process_in_dict_out_dict(mocker: MockerFixture) -> None:
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    chain = Channel.subscribe_to("input") | add_one | Channel.write_to("output")
+
+    app = Pregel(
+        nodes={"one": chain},
+        channels={"input": LastValue(int), "output": LastValue(int)},
+        input_channels=["input"],
+        output_channels=["output"],
+    )
+    if SHOULD_CHECK_SNAPSHOTS:
+        assert app.input_schema.model_json_schema() == {
+            "title": "LangGraphInput",
+            "type": "object",
+            "properties": {
+                "input": {"title": "Input", "type": "integer", "default": None}
+            },
+        }
+        assert app.output_schema.model_json_schema() == {
+            "title": "LangGraphOutput",
+            "type": "object",
+            "properties": {
+                "output": {"title": "Output", "type": "integer", "default": None}
+            },
+        }
+    assert app.invoke({"input": 2}) == {"output": 3}

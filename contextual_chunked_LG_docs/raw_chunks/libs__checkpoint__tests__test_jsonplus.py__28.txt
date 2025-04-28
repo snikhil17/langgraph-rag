@@ -1,0 +1,8 @@
+def test_serde_jsonplus_bytes() -> None:
+    serde = JsonPlusSerializer()
+
+    some_bytes = b"my bytes"
+    dumped = serde.dumps_typed(some_bytes)
+
+    assert dumped == ("bytes", some_bytes)
+    assert serde.loads_typed(dumped) == some_bytes

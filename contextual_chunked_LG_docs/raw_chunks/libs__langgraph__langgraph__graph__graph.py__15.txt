@@ -1,0 +1,4 @@
+class NodeSpec(NamedTuple):
+    runnable: Runnable
+    metadata: Optional[dict[str, Any]] = None
+    ends: Optional[Union[tuple[str, ...], dict[str, str]]] = EMPTY_SEQ

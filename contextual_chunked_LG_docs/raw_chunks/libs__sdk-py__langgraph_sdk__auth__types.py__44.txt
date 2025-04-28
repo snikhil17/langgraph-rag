@@ -1,0 +1,26 @@
+"""Payload for reading an assistant.
+
+???+ example "Examples"
+    ```python
+    read_params = {
+        "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "metadata": {"owner": "user123"}
+    }
+    ```"""
+class AssistantsRead(typing.TypedDict, total=False):
+    """Payload for reading an assistant.
+
+    ???+ example "Examples"
+        ```python
+        read_params = {
+            "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "metadata": {"owner": "user123"}
+        }
+        ```
+    """
+
+    assistant_id: UUID
+    """Unique identifier for the assistant."""
+
+    metadata: MetadataInput
+    """typing.Optional metadata to filter by."""

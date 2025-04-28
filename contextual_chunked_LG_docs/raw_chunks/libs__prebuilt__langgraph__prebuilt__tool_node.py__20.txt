@@ -1,0 +1,19 @@
+def msg_content_output(output: Any) -> Union[str, list[dict]]:
+    recognized_content_block_types = ("image", "image_url", "text", "json")
+    if isinstance(output, str):
+        return output
+    elif isinstance(output, list) and all(
+        [
+            isinstance(x, dict) and x.get("type") in recognized_content_block_types
+            for x in output
+        ]
+    ):
+        return output
+    # Technically a list of strings is also valid message content but it's not currently
+    # well tested that all chat models support this. And for backwards compatibility
+    # we want to make sure we don't break any existing ToolNode usage.
+    else:
+        try:
+            return json.dumps(output, ensure_ascii=False)
+        except Exception:
+            return str(output)

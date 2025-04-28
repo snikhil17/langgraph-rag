@@ -1,0 +1,5 @@
+"""Raised when the executor is unable to find a task (for distributed mode)."""
+class TaskNotFound(Exception):
+
+
+    pass

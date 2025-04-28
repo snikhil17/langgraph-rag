@@ -1,0 +1,10 @@
+"""Simplest implementation of WritesProtocol, for usage with writes that
+don't originate from a runnable task, eg. graph input, update_state, etc."""
+class PregelTaskWrites(NamedTuple):
+    """Simplest implementation of WritesProtocol, for usage with writes that
+    don't originate from a runnable task, eg. graph input, update_state, etc."""
+
+    path: tuple[Union[str, int, tuple], ...]
+    name: str
+    writes: Sequence[tuple[str, Any]]
+    triggers: Sequence[str]

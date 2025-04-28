@@ -1,0 +1,12 @@
+"""User objects must at least expose the identity property."""
+class MinimalUser(typing.Protocol):
+
+
+    @property
+    def identity(self) -> str:
+        """The unique identifier for the user.
+
+        This could be a username, email, or any other unique identifier used
+        to distinguish between different users in the system.
+        """
+        ...

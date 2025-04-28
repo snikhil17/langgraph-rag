@@ -1,0 +1,5 @@
+def update_references(references, new_references):
+    if not references:
+        references = {}
+    references.update(new_references)
+    return references

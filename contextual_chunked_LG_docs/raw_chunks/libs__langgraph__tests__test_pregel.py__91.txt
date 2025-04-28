@@ -1,0 +1,50 @@
+def test_conditional_entrypoint_graph_state(snapshot: SnapshotAssertion) -> None:
+    class AgentState(TypedDict, total=False):
+        input: str
+        output: str
+        steps: Annotated[list[str], operator.add]
+
+    def left(data: AgentState) -> AgentState:
+        return {"output": data["input"] + "->left"}
+
+    def right(data: AgentState) -> AgentState:
+        return {"output": data["input"] + "->right"}
+
+    def should_start(data: AgentState) -> str:
+        assert data["steps"] == [], "Expected input to be read from the state"
+        # Logic to decide where to start
+        if len(data["input"]) > 10:
+            return "go-right"
+        else:
+            return "go-left"
+
+    # Define a new graph
+    workflow = StateGraph(AgentState)
+
+    workflow.add_node("left", left)
+    workflow.add_node("right", right)
+
+    workflow.set_conditional_entry_point(
+        should_start, {"go-left": "left", "go-right": "right"}
+    )
+
+    workflow.add_conditional_edges("left", lambda data: END, {END: END})
+    workflow.add_edge("right", END)
+
+    app = workflow.compile()
+
+    if SHOULD_CHECK_SNAPSHOTS:
+        assert json.dumps(app.get_input_schema().model_json_schema()) == snapshot
+        assert json.dumps(app.get_output_schema().model_json_schema()) == snapshot
+        assert json.dumps(app.get_graph().to_json(), indent=2) == snapshot
+        assert app.get_graph().draw_mermaid(with_styles=False) == snapshot
+
+    assert app.invoke({"input": "what is weather in sf"}) == {
+        "input": "what is weather in sf",
+        "output": "what is weather in sf->right",
+        "steps": [],
+    }
+
+    assert [*app.stream({"input": "what is weather in sf"})] == [
+        {"right": {"output": "what is weather in sf->right"}},
+    ]

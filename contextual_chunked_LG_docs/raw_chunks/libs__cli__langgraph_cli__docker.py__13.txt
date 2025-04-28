@@ -1,0 +1,23 @@
+def debugger_compose(
+    *, port: Optional[int] = None, base_url: Optional[str] = None
+) -> dict:
+    if port is None:
+        return ""
+
+    config = {
+        "langgraph-debugger": {
+            "image": "langchain/langgraph-debugger",
+            "restart": "on-failure",
+            "depends_on": {
+                "langgraph-postgres": {"condition": "service_healthy"},
+            },
+            "ports": [f'"{port}:3968"'],
+        }
+    }
+
+    if base_url:
+        config["langgraph-debugger"]["environment"] = {
+            "VITE_STUDIO_LOCAL_GRAPH_URL": base_url
+        }
+
+    return config

@@ -1,0 +1,15 @@
+def test_callable_prompt():
+    def prompt(state):
+        modified_message = f"Bar {state['messages'][-1].content}"
+        return [HumanMessage(content=modified_message)]
+
+    for agent in (
+        create_react_agent(FakeToolCallingModel(), [], prompt=prompt),
+        create_react_agent(FakeToolCallingModel(), [], state_modifier=prompt),
+    ):
+        inputs = [HumanMessage("hi?")]
+        response = agent.invoke({"messages": inputs})
+        expected_response = {
+            "messages": inputs + [AIMessage(content="Bar hi?", id="0")]
+        }
+        assert response == expected_response

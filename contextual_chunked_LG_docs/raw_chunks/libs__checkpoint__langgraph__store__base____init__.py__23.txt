@@ -1,0 +1,24 @@
+"""Configuration for TTL (time-to-live) behavior in the store."""
+class TTLConfig(TypedDict, total=False):
+
+
+    refresh_on_read: bool
+    """Default behavior for refreshing TTLs on read operations (GET and SEARCH).
+
+    If True, TTLs will be refreshed on read operations (get/search) by default.
+    This can be overridden per-operation by explicitly setting refresh_ttl.
+    Defaults to True if not configured.
+    """
+    default_ttl: Optional[float]
+    """Default TTL (time-to-live) in minutes for new items.
+
+    If provided, new items will expire after this many minutes after their last access.
+    The expiration timer refreshes on both read and write operations.
+    Defaults to None (no expiration).
+    """
+    sweep_interval_minutes: Optional[int]
+    """Interval in minutes between TTL sweep operations.
+
+    If provided, the store will periodically delete expired items based on TTL.
+    Defaults to None (no sweeping).
+    """

@@ -1,0 +1,5 @@
+def is_writable_managed_value(value: Any) -> TypeGuard[type[WritableManagedValue]]:
+    return (isclass(value) and issubclass(value, WritableManagedValue)) or (
+        isinstance(value, ConfiguredManagedValue)
+        and issubclass(value.cls, WritableManagedValue)
+    )

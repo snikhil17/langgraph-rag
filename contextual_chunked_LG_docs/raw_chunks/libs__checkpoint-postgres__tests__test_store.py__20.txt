@@ -1,0 +1,40 @@
+def test_list_namespaces(store) -> None:
+    # Create test data with various namespaces
+    test_namespaces = [
+        ("test", "documents", "public"),
+        ("test", "documents", "private"),
+        ("test", "images", "public"),
+        ("test", "images", "private"),
+        ("prod", "documents", "public"),
+        ("prod", "documents", "private"),
+    ]
+
+    # Insert test data
+    for namespace in test_namespaces:
+        store.put(namespace, "dummy", {"content": "dummy"})
+
+    # Test listing with various filters
+    all_namespaces = store.list_namespaces()
+    assert len(all_namespaces) == len(test_namespaces)
+
+    # Test prefix filtering
+    test_prefix_namespaces = store.list_namespaces(prefix=["test"])
+    assert len(test_prefix_namespaces) == 4
+    assert all(ns[0] == "test" for ns in test_prefix_namespaces)
+
+    # Test suffix filtering
+    public_namespaces = store.list_namespaces(suffix=["public"])
+    assert len(public_namespaces) == 3
+    assert all(ns[-1] == "public" for ns in public_namespaces)
+
+    # Test max depth
+    depth_2_namespaces = store.list_namespaces(max_depth=2)
+    assert all(len(ns) <= 2 for ns in depth_2_namespaces)
+
+    # Test pagination
+    paginated_namespaces = store.list_namespaces(limit=3)
+    assert len(paginated_namespaces) == 3
+
+    # Cleanup
+    for namespace in test_namespaces:
+        store.delete(namespace, "dummy")

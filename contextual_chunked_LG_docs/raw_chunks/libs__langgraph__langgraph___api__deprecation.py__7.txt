@@ -1,0 +1,19 @@
+def deprecated_parameter(
+    arg_name: str, since: str, alternative: str, *, removal: str
+) -> Callable[[F], F]:
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+            if arg_name in kwargs:
+                warnings.warn(
+                    f"Parameter '{arg_name}' in function '{func.__name__}' is "
+                    f"deprecated as of version {since} and will be removed in version {removal}. "
+                    f"Use '{alternative}' parameter instead.",
+                    category=LangGraphDeprecationWarning,
+                    stacklevel=2,
+                )
+            return func(*args, **kwargs)
+
+        return cast(F, wrapper)
+
+    return decorator

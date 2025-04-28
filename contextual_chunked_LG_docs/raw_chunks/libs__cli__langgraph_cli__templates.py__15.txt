@@ -1,0 +1,64 @@
+"""Create a new LangGraph project at the specified PATH using the chosen TEMPLATE.
+
+Args:
+    path (Optional[str]): The path where the new project will be created.
+    template (Optional[str]): The name of the template to use."""
+def create_new(path: Optional[str], template: Optional[str]) -> None:
+    """Create a new LangGraph project at the specified PATH using the chosen TEMPLATE.
+
+    Args:
+        path (Optional[str]): The path where the new project will be created.
+        template (Optional[str]): The name of the template to use.
+    """
+    # Prompt for path if not provided
+    if not path:
+        path = click.prompt(
+            "📂 Please specify the path to create the application", default="."
+        )
+
+    path = os.path.abspath(path)  # Ensure path is absolute
+
+    # Check if path exists and is not empty
+    if os.path.exists(path) and os.listdir(path):
+        click.secho(
+            "❌ The specified directory already exists and is not empty. "
+            "Aborting to prevent overwriting files.",
+            fg="red",
+            bold=True,
+        )
+        sys.exit(1)
+
+    # Get template URL either from command-line argument or
+    # through interactive selection
+    if template:
+        if template not in TEMPLATE_ID_TO_CONFIG:
+            # Format available options in a readable way with descriptions
+            template_options = ""
+            for id_ in TEMPLATE_IDS:
+                name, lang, _ = TEMPLATE_ID_TO_CONFIG[id_]
+                description = TEMPLATES[name]["description"]
+
+                # Add each template option with color formatting
+                template_options += (
+                    click.style("- ", fg="yellow", bold=True)
+                    + click.style(f"{id_}", fg="cyan")
+                    + click.style(f": {description}", fg="white")
+                    + "\n"
+                )
+
+            # Display error message with colors and formatting
+            click.secho("❌ Error:", fg="red", bold=True, nl=False)
+            click.secho(f" Template '{template}' not found.", fg="red")
+            click.secho(
+                "Please select from the available options:\n", fg="yellow", bold=True
+            )
+            click.secho(template_options, fg="cyan")
+            sys.exit(1)
+        _, _, template_url = TEMPLATE_ID_TO_CONFIG[template]
+    else:
+        template_url = _choose_template()
+
+    # Download and extract the template
+    _download_repo_with_requests(template_url, path)
+
+    click.secho(f"🎉 New project created at {path}", fg="green", bold=True)

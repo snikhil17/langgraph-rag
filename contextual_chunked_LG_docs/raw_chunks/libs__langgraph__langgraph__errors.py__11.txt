@@ -1,0 +1,6 @@
+"""Raised by a node to interrupt execution."""
+class NodeInterrupt(GraphInterrupt):
+
+
+    def __init__(self, value: Any) -> None:
+        super().__init__([Interrupt(value=value)])

@@ -1,0 +1,13 @@
+def read_channel(
+    channels: Mapping[str, BaseChannel],
+    chan: str,
+    *,
+    catch: bool = True,
+) -> Any:
+    try:
+        return channels[chan].get()
+    except EmptyChannelError:
+        if catch:
+            return None
+        else:
+            raise

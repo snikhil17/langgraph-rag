@@ -1,0 +1,26 @@
+def test_with_config():
+    # set up test
+    remote_pregel = RemoteGraph(
+        "test_graph_id",
+        config={
+            "configurable": {
+                "foo": "bar",
+                "thread_id": "thread_id_1",
+            }
+        },
+    )
+
+    # call method / assertions
+    config = {"configurable": {"hello": "world"}}
+    remote_pregel_copy = remote_pregel.with_config(config)
+
+    # assert that a copy was returned
+    assert remote_pregel_copy != remote_pregel
+    # assert that configs were merged
+    assert remote_pregel_copy.config == {
+        "configurable": {
+            "foo": "bar",
+            "thread_id": "thread_id_1",
+            "hello": "world",
+        }
+    }

@@ -1,0 +1,2 @@
+def noop_context() -> Iterator[None]:
+    yield None

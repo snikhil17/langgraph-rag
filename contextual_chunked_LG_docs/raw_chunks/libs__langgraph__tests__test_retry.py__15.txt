@@ -1,0 +1,67 @@
+"""Test a graph with multiple retry policies for a node."""
+def test_graph_with_multiple_retry_policies():
+
+
+    class State(TypedDict):
+        foo: str
+        error_type: str
+
+    attempt_counts = {"value_error": 0, "key_error": 0}
+
+    def failing_node(state):
+        error_type = state["error_type"]
+
+        if error_type == "value_error":
+            attempt_counts["value_error"] += 1
+            if attempt_counts["value_error"] < 2:
+                raise ValueError("Value error")
+        elif error_type == "key_error":
+            attempt_counts["key_error"] += 1
+            if attempt_counts["key_error"] < 3:
+                raise KeyError("Key error")
+
+        return {"foo": f"recovered_from_{error_type}"}
+
+    # Create multiple retry policies
+    value_error_policy = RetryPolicy(
+        max_attempts=2,
+        initial_interval=0.01,
+        jitter=False,
+        retry_on=ValueError,
+    )
+
+    key_error_policy = RetryPolicy(
+        max_attempts=3,
+        initial_interval=0.02,
+        jitter=False,
+        retry_on=KeyError,
+    )
+
+    # Create and compile the graph with a list of retry policies
+    graph = (
+        StateGraph(State)
+        .add_node(
+            "failing_node",
+            failing_node,
+            retry=(value_error_policy, key_error_policy),
+        )
+        .add_edge(START, "failing_node")
+        .compile()
+    )
+
+    # Test ValueError scenario
+    with patch("time.sleep"):
+        result_value_error = graph.invoke({"foo": "", "error_type": "value_error"})
+
+    assert attempt_counts["value_error"] == 2
+    assert result_value_error["foo"] == "recovered_from_value_error"
+
+    # Reset attempt counts
+    attempt_counts = {"value_error": 0, "key_error": 0}
+
+    # Test KeyError scenario
+    with patch("time.sleep"):
+        result_key_error = graph.invoke({"foo": "", "error_type": "key_error"})
+
+    assert attempt_counts["key_error"] == 3
+    assert result_key_error["foo"] == "recovered_from_key_error"

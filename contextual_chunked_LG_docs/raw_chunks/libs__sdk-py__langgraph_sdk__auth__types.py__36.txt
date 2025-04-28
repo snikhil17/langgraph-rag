@@ -1,0 +1,39 @@
+"""Complete authentication context with resource and action information.
+
+Extends BaseAuthContext with specific resource and action being accessed,
+allowing for fine-grained access control decisions."""
+class AuthContext(BaseAuthContext):
+    """Complete authentication context with resource and action information.
+
+    Extends BaseAuthContext with specific resource and action being accessed,
+    allowing for fine-grained access control decisions.
+    """
+
+    resource: typing.Literal["runs", "threads", "crons", "assistants", "store"]
+    """The resource being accessed."""
+
+    action: typing.Literal[
+        "create",
+        "read",
+        "update",
+        "delete",
+        "search",
+        "create_run",
+        "put",
+        "get",
+        "list_namespaces",
+    ]
+    """The action being performed on the resource.
+
+    Most resources support the following actions:
+    - create: Create a new resource
+    - read: Read information about a resource
+    - update: Update an existing resource
+    - delete: Delete a resource
+    - search: Search for resources
+
+    The store supports the following actions:
+    - put: Add or update a document in the store
+    - get: Get a document from the store
+    - list_namespaces: List the namespaces in the store
+    """

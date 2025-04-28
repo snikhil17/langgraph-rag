@@ -1,0 +1,19 @@
+"""Combine api_key and custom user-provided headers."""
+def get_headers(
+    api_key: Optional[str], custom_headers: Optional[dict[str, str]]
+) -> dict[str, str]:
+
+    custom_headers = custom_headers or {}
+    for header in RESERVED_HEADERS:
+        if header in custom_headers:
+            raise ValueError(f"Cannot set reserved header '{header}'")
+
+    headers = {
+        "User-Agent": f"langgraph-sdk-py/{langgraph_sdk.__version__}",
+        **custom_headers,
+    }
+    api_key = _get_api_key(api_key)
+    if api_key:
+        headers["x-api-key"] = api_key
+
+    return headers

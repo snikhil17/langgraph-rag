@@ -1,0 +1,170 @@
+"""Generate a Dockerfile from the configuration."""
+def python_config_to_docker(
+    config_path: pathlib.Path,
+    config: Config,
+    base_image: str,
+) -> tuple[str, dict[str, str]]:
+
+    # configure pip
+    pip_install = (
+        "PYTHONDONTWRITEBYTECODE=1 pip install --no-cache-dir -c /api/constraints.txt"
+    )
+    if config.get("pip_config_file"):
+        pip_install = f"PIP_CONFIG_FILE=/pipconfig.txt {pip_install}"
+    pip_config_file_str = (
+        f"ADD {config['pip_config_file']} /pipconfig.txt"
+        if config.get("pip_config_file")
+        else ""
+    )
+
+    docker_tag = config.get("_INTERNAL_docker_tag") or config["python_version"]
+
+    # collect dependencies
+    pypi_deps = [dep for dep in config["dependencies"] if not dep.startswith(".")]
+    local_deps = _assemble_local_deps(config_path, config)
+    # Rewrite graph paths, so they point to the correct location in the Docker container
+    _update_graph_paths(config_path, config, local_deps)
+    # Rewrite auth path, so it points to the correct location in the Docker container
+    _update_auth_path(config_path, config, local_deps)
+    # Rewrite HTTP app path, so it points to the correct location in the Docker container
+    _update_http_app_path(config_path, config, local_deps)
+
+    pip_pkgs_str = f"RUN {pip_install} {' '.join(pypi_deps)}" if pypi_deps else ""
+    if local_deps.pip_reqs:
+        pip_reqs_str = os.linesep.join(
+            (
+                f"COPY --from=__outer_{reqpath.name} requirements.txt {destpath}"
+                if reqpath.parent in local_deps.additional_contexts
+                else f"ADD {reqpath.relative_to(config_path.parent)} {destpath}"
+            )
+            for reqpath, destpath in local_deps.pip_reqs
+        )
+        pip_reqs_str += f'{os.linesep}RUN {pip_install} {" ".join("-r " + r for _,r in local_deps.pip_reqs)}'
+        pip_reqs_str = f"""# -- Installing local requirements --
+{pip_reqs_str}
+# -- End of local requirements install --"""
+
+    else:
+        pip_reqs_str = ""
+
+    # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#package-data
+    # https://til.simonwillison.net/python/pyproject
+    faux_pkgs_str = f"{os.linesep}{os.linesep}".join(
+        (
+            f"""# -- Adding non-package dependency {fullpath.name} --
+COPY --from=__outer_{fullpath.name} . {destpath}"""
+            if fullpath in local_deps.additional_contexts
+            else f"""# -- Adding non-package dependency {fullpath.name} --
+ADD {relpath} {destpath}"""
+        )
+        + f"""
+RUN set -ex && \\
+    for line in '[project]' \\
+                'name = "{fullpath.name}"' \\
+                'version = "0.1"' \\
+                '[tool.setuptools.package-data]' \\
+                '"*" = ["**/*"]'; do \\
+        echo "$line" >> /deps/__outer_{fullpath.name}/pyproject.toml; \\
+    done
+# -- End of non-package dependency {fullpath.name} --"""
+        for fullpath, (relpath, destpath) in local_deps.faux_pkgs.items()
+    )
+
+    local_pkgs_str = os.linesep.join(
+        (
+            f"""# -- Adding local package {relpath} --
+COPY --from={name} . /deps/{name}
+# -- End of local package {relpath} --"""
+            if fullpath in local_deps.additional_contexts
+            else f"""# -- Adding local package {relpath} --
+ADD {relpath} /deps/{name}
+# -- End of local package {relpath} --"""
+        )
+        for fullpath, (relpath, name) in local_deps.real_pkgs.items()
+    )
+
+    install_node_str: str = (
+        "RUN /storage/install-node.sh"
+        if (config.get("ui") or config.get("node_version")) and local_deps.working_dir
+        else ""
+    )
+
+    installs = f"{os.linesep}{os.linesep}".join(
+        filter(
+            None,
+            [
+                install_node_str,
+                pip_config_file_str,
+                pip_pkgs_str,
+                pip_reqs_str,
+                local_pkgs_str,
+                faux_pkgs_str,
+            ],
+        )
+    )
+
+    env_vars = []
+
+    if (store_config := config.get("store")) is not None:
+        env_vars.append(f"ENV LANGGRAPH_STORE='{json.dumps(store_config)}'")
+
+    if (auth_config := config.get("auth")) is not None:
+        env_vars.append(f"ENV LANGGRAPH_AUTH='{json.dumps(auth_config)}'")
+
+    if (http_config := config.get("http")) is not None:
+        env_vars.append(f"ENV LANGGRAPH_HTTP='{json.dumps(http_config)}'")
+
+    if (checkpointer_config := config.get("checkpointer")) is not None:
+        env_vars.append(
+            f"ENV LANGGRAPH_CHECKPOINTER='{json.dumps(checkpointer_config)}'"
+        )
+
+    if (ui := config.get("ui")) is not None:
+        env_vars.append(f"ENV LANGGRAPH_UI='{json.dumps(ui)}'")
+
+    if (ui_config := config.get("ui_config")) is not None:
+        env_vars.append(f"ENV LANGGRAPH_UI_CONFIG='{json.dumps(ui_config)}'")
+
+    env_vars.append(f"ENV LANGSERVE_GRAPHS='{json.dumps(config['graphs'])}'")
+
+    js_inst_str: str = ""
+    if (config.get("ui") or config.get("node_version")) and local_deps.working_dir:
+        js_inst_str = os.linesep.join(
+            [
+                "# -- Installing JS dependencies --",
+                f"ENV NODE_VERSION={config.get('node_version') or DEFAULT_NODE_VERSION}",
+                f"RUN cd {local_deps.working_dir} && {_get_node_pm_install_cmd(config_path, config)} && tsx /api/langgraph_api/js/build.mts",
+                "# -- End of JS dependencies install --",
+            ]
+        )
+
+    docker_file_contents = [
+        f"FROM {base_image}:{docker_tag}",
+        "",
+        os.linesep.join(config["dockerfile_lines"]),
+        "",
+        installs,
+        "",
+        "# -- Installing all local dependencies --",
+        f"RUN {pip_install} -e /deps/*",
+        "# -- End of local dependencies install --",
+        os.linesep.join(env_vars),
+        "",
+        js_inst_str,
+        "",
+        PIP_CLEANUP_LINES,  # Add pip cleanup after all installations are complete
+        "",
+        f"WORKDIR {local_deps.working_dir}" if local_deps.working_dir else "",
+    ]
+
+    additional_contexts: dict[str, str] = {}
+    for p in local_deps.additional_contexts:
+        if p in local_deps.real_pkgs:
+            name = local_deps.real_pkgs[p][1]
+        elif p in local_deps.faux_pkgs:
+            name = f"__outer_{p.name}"
+        else:
+            raise RuntimeError(f"Unknown additional context: {p}")
+        additional_contexts[name] = str(p)
+
+    return os.linesep.join(docker_file_contents), additional_contexts

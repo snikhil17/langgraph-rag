@@ -1,0 +1,25 @@
+"""Whether a namespace key matches a match condition."""
+def _does_match(match_condition: MatchCondition, key: tuple[str, ...]) -> bool:
+
+    match_type = match_condition.match_type
+    path = match_condition.path
+
+    if len(key) < len(path):
+        return False
+
+    if match_type == "prefix":
+        for k_elem, p_elem in zip(key, path):
+            if p_elem == "*":
+                continue  # Wildcard matches any element
+            if k_elem != p_elem:
+                return False
+        return True
+    elif match_type == "suffix":
+        for k_elem, p_elem in zip(reversed(key), reversed(path)):
+            if p_elem == "*":
+                continue  # Wildcard matches any element
+            if k_elem != p_elem:
+                return False
+        return True
+    else:
+        raise ValueError(f"Unsupported match type: {match_type}")

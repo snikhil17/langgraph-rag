@@ -1,0 +1,8 @@
+class AsyncProducer(Protocol):
+    async def send(
+        self,
+        topic: str,
+        *,
+        key: Optional[bytes] = None,
+        value: Optional[bytes] = None,
+    ) -> asyncio.Future: ...

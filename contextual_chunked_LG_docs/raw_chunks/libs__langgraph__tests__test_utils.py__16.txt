@@ -1,0 +1,15 @@
+def rt_graph() -> CompiledGraph:
+    class State(TypedDict):
+        foo: int
+        node_run_id: int
+
+    def node(_: State):
+        from langsmith import get_current_run_tree  # type: ignore
+
+        return {"node_run_id": get_current_run_tree().id}  # type: ignore
+
+    graph = StateGraph(State)
+    graph.add_node(node)
+    graph.set_entry_point("node")
+    graph.add_edge("node", END)
+    return graph.compile()

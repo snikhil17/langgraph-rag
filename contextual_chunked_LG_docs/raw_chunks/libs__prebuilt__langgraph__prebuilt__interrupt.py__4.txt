@@ -1,0 +1,62 @@
+"""Represents an interrupt triggered by the graph that requires human intervention.
+
+This is passed to the `interrupt` function when execution is paused for human input.
+
+Attributes:
+    action_request: The specific action being requested from the human
+    config: Configuration defining what actions are allowed
+    description: Optional detailed description of what input is needed
+
+Example:
+    ```python
+    # Extract a tool call from the state and create an interrupt request
+    request = HumanInterrupt(
+        action_request=ActionRequest(
+            action="run_command",  # The action being requested
+            args={"command": "ls", "args": ["-l"]}  # Arguments for the action
+        ),
+        config=HumanInterruptConfig(
+            allow_ignore=True,    # Allow skipping this step
+            allow_respond=True,   # Allow text feedback
+            allow_edit=False,     # Don't allow editing
+            allow_accept=True     # Allow direct acceptance
+        ),
+        description="Please review the command before execution"
+    )
+    # Send the interrupt request and get the response
+    response = interrupt([request])[0]
+    ```"""
+class HumanInterrupt(TypedDict):
+    """Represents an interrupt triggered by the graph that requires human intervention.
+
+    This is passed to the `interrupt` function when execution is paused for human input.
+
+    Attributes:
+        action_request: The specific action being requested from the human
+        config: Configuration defining what actions are allowed
+        description: Optional detailed description of what input is needed
+
+    Example:
+        ```python
+        # Extract a tool call from the state and create an interrupt request
+        request = HumanInterrupt(
+            action_request=ActionRequest(
+                action="run_command",  # The action being requested
+                args={"command": "ls", "args": ["-l"]}  # Arguments for the action
+            ),
+            config=HumanInterruptConfig(
+                allow_ignore=True,    # Allow skipping this step
+                allow_respond=True,   # Allow text feedback
+                allow_edit=False,     # Don't allow editing
+                allow_accept=True     # Allow direct acceptance
+            ),
+            description="Please review the command before execution"
+        )
+        # Send the interrupt request and get the response
+        response = interrupt([request])[0]
+        ```
+    """
+
+    action_request: ActionRequest
+    config: HumanInterruptConfig
+    description: Optional[str]

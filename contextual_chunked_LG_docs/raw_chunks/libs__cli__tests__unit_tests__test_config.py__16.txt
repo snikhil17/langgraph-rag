@@ -1,0 +1,18 @@
+def test_config_to_docker_invalid_inputs():
+    # test missing local dependencies
+    with pytest.raises(FileNotFoundError):
+        graphs = {"agent": "tests/unit_tests/agent.py:graph"}
+        config_to_docker(
+            PATH_TO_CONFIG,
+            validate_config({"dependencies": ["./missing"], "graphs": graphs}),
+            "langchain/langgraph-api",
+        )
+
+    # test missing local module
+    with pytest.raises(FileNotFoundError):
+        graphs = {"agent": "./missing_agent.py:graph"}
+        config_to_docker(
+            PATH_TO_CONFIG,
+            validate_config({"dependencies": ["."], "graphs": graphs}),
+            "langchain/langgraph-api",
+        )

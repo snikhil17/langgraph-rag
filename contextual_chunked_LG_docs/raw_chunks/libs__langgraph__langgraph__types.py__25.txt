@@ -1,0 +1,3 @@
+class StateUpdate(NamedTuple):
+    values: Optional[dict[str, Any]]
+    as_node: Optional[str] = None

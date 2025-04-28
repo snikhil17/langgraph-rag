@@ -1,0 +1,19 @@
+def log_data(data: LogData) -> None:
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_PUBLIC_API_KEY,
+        "User-Agent": "Mozilla/5.0",
+    }
+    supabase_url = SUPABASE_URL
+
+    req = urllib.request.Request(
+        f"{supabase_url}/rest/v1/logs",
+        data=json.dumps(data).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        urllib.request.urlopen(req)
+    except urllib.error.URLError:
+        pass

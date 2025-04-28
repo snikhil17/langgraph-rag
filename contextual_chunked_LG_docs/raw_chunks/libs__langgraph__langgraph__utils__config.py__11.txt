@@ -1,0 +1,19 @@
+"""Remove task IDs from checkpoint namespace.
+
+Args:
+    ns (str): The checkpoint namespace with task IDs.
+
+Returns:
+    str: The checkpoint namespace without task IDs."""
+def recast_checkpoint_ns(ns: str) -> str:
+    """Remove task IDs from checkpoint namespace.
+
+    Args:
+        ns (str): The checkpoint namespace with task IDs.
+
+    Returns:
+        str: The checkpoint namespace without task IDs.
+    """
+    return NS_SEP.join(
+        part.split(NS_END)[0] for part in ns.split(NS_SEP) if not part.isdigit()
+    )

@@ -1,0 +1,87 @@
+def test_list_namespaces_basic() -> None:
+    store = InMemoryStore()
+
+    namespaces = [
+        ("a", "b", "c"),
+        ("a", "b", "d", "e"),
+        ("a", "b", "d", "i"),
+        ("a", "b", "f"),
+        ("a", "c", "f"),
+        ("b", "a", "f"),
+        ("users", "123"),
+        ("users", "456", "settings"),
+        ("admin", "users", "789"),
+    ]
+
+    for i, ns in enumerate(namespaces):
+        store.put(namespace=ns, key=f"id_{i}", value={"data": f"value_{i:02d}"})
+
+    result = store.list_namespaces(prefix=("a", "b"))
+    expected = [
+        ("a", "b", "c"),
+        ("a", "b", "d", "e"),
+        ("a", "b", "d", "i"),
+        ("a", "b", "f"),
+    ]
+    assert sorted(result) == sorted(expected)
+
+    result = store.list_namespaces(suffix=("f",))
+    expected = [
+        ("a", "b", "f"),
+        ("a", "c", "f"),
+        ("b", "a", "f"),
+    ]
+    assert sorted(result) == sorted(expected)
+
+    result = store.list_namespaces(prefix=("a",), suffix=("f",))
+    expected = [
+        ("a", "b", "f"),
+        ("a", "c", "f"),
+    ]
+    assert sorted(result) == sorted(expected)
+
+    # Test max_depth
+    result = store.list_namespaces(prefix=("a", "b"), max_depth=3)
+    expected = [
+        ("a", "b", "c"),
+        ("a", "b", "d"),
+        ("a", "b", "f"),
+    ]
+    assert sorted(result) == sorted(expected)
+
+    # Test limit and offset
+    result = store.list_namespaces(prefix=("a", "b"), limit=2)
+    expected = [
+        ("a", "b", "c"),
+        ("a", "b", "d", "e"),
+    ]
+    assert result == expected
+
+    result = store.list_namespaces(prefix=("a", "b"), offset=2)
+    expected = [
+        ("a", "b", "d", "i"),
+        ("a", "b", "f"),
+    ]
+    assert result == expected
+
+    result = store.list_namespaces(prefix=("a", "*", "f"))
+    expected = [
+        ("a", "b", "f"),
+        ("a", "c", "f"),
+    ]
+    assert sorted(result) == sorted(expected)
+
+    result = store.list_namespaces(suffix=("*", "f"))
+    expected = [
+        ("a", "b", "f"),
+        ("a", "c", "f"),
+        ("b", "a", "f"),
+    ]
+    assert sorted(result) == sorted(expected)
+
+    result = store.list_namespaces(prefix=("nonexistent",))
+    assert result == []
+
+    result = store.list_namespaces(prefix=("users", "123"))
+    expected = [("users", "123")]
+    assert result == expected

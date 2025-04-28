@@ -1,0 +1,18 @@
+"""Test edge cases in vector search."""
+def test_vector_search_edge_cases(vector_store: PostgresStore) -> None:
+
+    vector_store.put(("test",), "doc1", {"text": "test document"})
+
+    results = vector_store.search(("test",), query="")
+    assert len(results) == 1
+
+    results = vector_store.search(("test",), query=None)
+    assert len(results) == 1
+
+    long_query = "test " * 100
+    results = vector_store.search(("test",), query=long_query)
+    assert len(results) == 1
+
+    special_query = "test!@#$%^&*()"
+    results = vector_store.search(("test",), query=special_query)
+    assert len(results) == 1

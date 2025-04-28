@@ -1,0 +1,89 @@
+def up(
+    config: pathlib.Path,
+    docker_compose: Optional[pathlib.Path],
+    port: int,
+    recreate: bool,
+    pull: bool,
+    watch: bool,
+    wait: bool,
+    verbose: bool,
+    debugger_port: Optional[int],
+    debugger_base_url: Optional[str],
+    postgres_uri: Optional[str],
+    image: Optional[str],
+):
+    click.secho("Starting LangGraph API server...", fg="green")
+    click.secho(
+        """For local dev, requires env var LANGSMITH_API_KEY with access to LangGraph Cloud closed beta.
+For production use, requires a license key in env var LANGGRAPH_CLOUD_LICENSE_KEY.""",
+    )
+    with Runner() as runner, Progress(message="Pulling...") as set:
+        capabilities = langgraph_cli.docker.check_capabilities(runner)
+        args, stdin = prepare(
+            runner,
+            capabilities=capabilities,
+            config_path=config,
+            docker_compose=docker_compose,
+            port=port,
+            pull=pull,
+            watch=watch,
+            verbose=verbose,
+            debugger_port=debugger_port,
+            debugger_base_url=debugger_base_url,
+            postgres_uri=postgres_uri,
+            image=image,
+        )
+        # add up + options
+        args.extend(["up", "--remove-orphans"])
+        if recreate:
+            args.extend(["--force-recreate", "--renew-anon-volumes"])
+            try:
+                runner.run(subp_exec("docker", "volume", "rm", "langgraph-data"))
+            except click.exceptions.Exit:
+                pass
+        if watch:
+            args.append("--watch")
+        if wait:
+            args.append("--wait")
+        else:
+            args.append("--abort-on-container-exit")
+        # run docker compose
+        set("Building...")
+
+        def on_stdout(line: str):
+            if "unpacking to docker.io" in line:
+                set("Starting...")
+            elif "Application startup complete" in line:
+                debugger_origin = (
+                    f"http://localhost:{debugger_port}"
+                    if debugger_port
+                    else "https://smith.langchain.com"
+                )
+                debugger_base_url_query = (
+                    debugger_base_url or f"http://127.0.0.1:{port}"
+                )
+                set("")
+                sys.stdout.write(
+                    f"""Ready!
+- API: http://localhost:{port}
+- Docs: http://localhost:{port}/docs
+- LangGraph Studio: {debugger_origin}/studio/?baseUrl={debugger_base_url_query}
+"""
+                )
+                sys.stdout.flush()
+                return True
+
+        if capabilities.compose_type == "plugin":
+            compose_cmd = ["docker", "compose"]
+        elif capabilities.compose_type == "standalone":
+            compose_cmd = ["docker-compose"]
+
+        runner.run(
+            subp_exec(
+                *compose_cmd,
+                *args,
+                input=stdin,
+                verbose=verbose,
+                on_stdout=on_stdout,
+            )
+        )

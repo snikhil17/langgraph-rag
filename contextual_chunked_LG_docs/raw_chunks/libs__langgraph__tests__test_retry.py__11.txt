@@ -1,0 +1,7 @@
+"""Test retry with an empty sequence."""
+def test_should_retry_on_empty_sequence():
+
+    policy = RetryPolicy(retry_on=())
+
+    # Should not retry when sequence is empty
+    assert _should_retry_on(policy, ValueError("test error")) is False

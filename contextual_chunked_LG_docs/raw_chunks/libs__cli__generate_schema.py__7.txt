@@ -1,0 +1,92 @@
+"""Add docstring descriptions to the schema properties."""
+def add_descriptions_to_schema(schema, cls):
+
+    if schema.get("description"):
+        schema["description"] = inspect.cleandoc(schema["description"])
+    elif class_doc := inspect.getdoc(cls):
+        schema["description"] = inspect.cleandoc(class_doc)
+    # Get attribute docstrings from the class
+    attr_docs = {}
+
+    # Also check class annotations for docstrings
+    source_lines = inspect.getsourcelines(cls)[0]
+    current_attr = None
+    docstring_lines = []
+
+    for line in source_lines:
+        line = line.strip()
+
+        # Check for attribute definition (TypedDict style)
+        if ":" in line and not line.startswith("#") and not line.startswith('"""'):
+            parts = line.split(":", 1)
+            if len(parts) == 2 and parts[0].strip().isidentifier():
+                # If we were collecting a docstring, save it for the previous attribute
+                if current_attr and docstring_lines:
+                    attr_docs[current_attr] = "\n".join(docstring_lines).strip('"')
+                    docstring_lines = []
+
+                current_attr = parts[0].strip()
+
+        # Check for docstring after attribute
+        elif line.startswith('"""') and current_attr:
+            # Start or end of a docstring
+            if len(line) > 3 and line.endswith('"""'):
+                # Single line docstring
+                attr_docs[current_attr] = line.strip('"')
+                current_attr = None
+            elif docstring_lines:
+                # End of multi-line docstring
+                docstring_lines.append(line.rstrip('"'))
+                attr_docs[current_attr] = "\n".join(docstring_lines).strip('"')
+                docstring_lines = []
+                current_attr = None
+            else:
+                # Start of multi-line docstring
+                docstring_lines.append(line.lstrip('"'))
+
+        # Continue multi-line docstring
+        elif docstring_lines and current_attr:
+            docstring_lines.append(line.strip('"'))
+
+    # Add the last docstring if there is one
+    if current_attr and docstring_lines:
+        attr_docs[current_attr] = "\n".join(docstring_lines).strip('"')
+
+    # Add descriptions to properties
+    if "properties" in schema:
+        for prop_name, prop_schema in schema["properties"].items():
+            # First try to get from attribute docstrings
+            if prop_name in attr_docs and "description" not in prop_schema:
+                prop_schema["description"] = textwrap.dedent(attr_docs[prop_name])
+            # Fall back to class docstring parsing
+            elif class_doc:
+                for line in class_doc.split("\n"):
+                    if line.strip().startswith(
+                        f"{prop_name}:"
+                    ) or line.strip().startswith(f'"{prop_name}"'):
+                        description = line.split(":", 1)[1].strip()
+                        if description and "description" not in prop_schema:
+                            prop_schema["description"] = description
+                            break
+
+    # Recursively process nested definitions
+    if "$defs" in schema:
+        for def_name, def_schema in schema["$defs"].items():
+            # Find the class that corresponds to this definition
+            for potential_cls in [
+                Config,
+                StoreConfig,
+                IndexConfig,
+                AuthConfig,
+                SecurityConfig,
+                HttpConfig,
+                CorsConfig,
+                ThreadTTLConfig,
+                CheckpointerConfig,
+                TTLConfig,
+            ]:
+                if potential_cls.__name__ == def_name:
+                    add_descriptions_to_schema(def_schema, potential_cls)
+                    break
+
+    return schema

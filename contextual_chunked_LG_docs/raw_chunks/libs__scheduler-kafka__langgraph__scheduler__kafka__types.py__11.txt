@@ -1,0 +1,15 @@
+class ConsumerRecord(Protocol):
+    topic: str
+    "The topic this record is received from"
+    partition: int
+    "The partition from which this record is received"
+    offset: int
+    "The position of this record in the corresponding Kafka partition."
+    timestamp: int
+    "The timestamp of this record"
+    timestamp_type: int
+    "The timestamp type of this record"
+    key: Optional[bytes]
+    "The key (or `None` if no key is specified)"
+    value: Optional[bytes]
+    "The value"

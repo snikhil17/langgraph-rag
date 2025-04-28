@@ -1,0 +1,27 @@
+def test_remove_all_messages():
+    # simple removal
+    left = [HumanMessage(content="Hello"), AIMessage(content="Hi there!")]
+    right = [RemoveMessage(id=REMOVE_ALL_MESSAGES)]
+    result = add_messages(left, right)
+    assert result == []
+
+    # removal and update (i.e., overwriting)
+    left = [HumanMessage(content="Hello"), AIMessage(content="Hi there!")]
+    right = [
+        RemoveMessage(id=REMOVE_ALL_MESSAGES),
+        HumanMessage(content="Updated hello"),
+    ]
+    result = add_messages(left, right)
+    assert result == [_AnyIdHumanMessage(content="Updated hello")]
+
+    # test removing preceding messages in the right list
+    left = [HumanMessage(content="Hello"), AIMessage(content="Hi there!")]
+    right = [
+        HumanMessage(content="Updated hello"),
+        RemoveMessage(id=REMOVE_ALL_MESSAGES),
+        HumanMessage(content="Updated hi there"),
+    ]
+    result = add_messages(left, right)
+    assert result == [
+        _AnyIdHumanMessage(content="Updated hi there"),
+    ]

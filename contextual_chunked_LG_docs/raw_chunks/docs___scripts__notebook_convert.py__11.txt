@@ -1,0 +1,65 @@
+"""Determine if the code block is expected to produce output.
+
+Args:
+    source (str): The source code of the code block.
+
+Returns:
+    True if the code block is expected to produce output, False otherwise.
+
+    Must meet the following conditions:
+
+    1. There is a call to a printing function (name starts with "print")
+       that is not inside a function definition.
+    2. The last top-level statement is an expression that is valid if:
+     - It is any expression (including calls) AND
+     - It is NOT a call to `display(...)`.
+
+    `display` isn't handled currently by markdown-exec"""
+def _has_output(source: str) -> bool:
+    """Determine if the code block is expected to produce output.
+
+    Args:
+        source (str): The source code of the code block.
+
+    Returns:
+        True if the code block is expected to produce output, False otherwise.
+
+        Must meet the following conditions:
+
+        1. There is a call to a printing function (name starts with "print")
+           that is not inside a function definition.
+        2. The last top-level statement is an expression that is valid if:
+         - It is any expression (including calls) AND
+         - It is NOT a call to `display(...)`.
+
+        `display` isn't handled currently by markdown-exec
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+
+    # Condition (1): Check for a global print-like call.
+    visitor = PrintCallVisitor()
+    visitor.visit(tree)
+    condition_a = visitor.has_print
+
+    # Condition (2): Check the last top-level statement.
+    condition_b = False
+    if tree.body:
+        last_stmt = tree.body[-1]
+        if isinstance(last_stmt, ast.Expr):
+            # If the expression is a call, ensure it's not a call to "display"
+            if isinstance(last_stmt.value, ast.Call):
+                if (
+                    isinstance(last_stmt.value.func, ast.Name)
+                    and last_stmt.value.func.id == "display"
+                ):
+                    condition_b = False  # exclude display-wrapped expressions
+                else:
+                    condition_b = True
+            else:
+                # Any other expression qualifies.
+                condition_b = True
+
+    return condition_a or condition_b

@@ -1,0 +1,9 @@
+class ChannelWriteEntry(NamedTuple):
+    channel: str
+    """Channel name to write to."""
+    value: Any = PASSTHROUGH
+    """Value to write, or PASSTHROUGH to use the input."""
+    skip_none: bool = False
+    """Whether to skip writing if the value is None."""
+    mapper: Callable | None = None
+    """Function to transform the value before writing."""

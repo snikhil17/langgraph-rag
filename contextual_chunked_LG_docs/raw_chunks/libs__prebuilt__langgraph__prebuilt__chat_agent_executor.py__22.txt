@@ -1,0 +1,7 @@
+"""The state of the agent."""
+class AgentStatePydantic(BaseModel):
+
+
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+
+    remaining_steps: RemainingSteps = 25

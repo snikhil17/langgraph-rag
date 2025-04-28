@@ -1,0 +1,7 @@
+def test_runnable_callable_tracing_nested(rt_graph: CompiledGraph) -> None:
+    with patch("langsmith.client.Client", spec=langsmith.Client) as mock_client:
+        with patch("langchain_core.tracers.langchain.get_client") as mock_get_client:
+            mock_get_client.return_value = mock_client
+            with langsmith.tracing_context(enabled=True):
+                res = rt_graph.invoke({"foo": 1})
+    assert isinstance(res["node_run_id"], uuid.UUID)

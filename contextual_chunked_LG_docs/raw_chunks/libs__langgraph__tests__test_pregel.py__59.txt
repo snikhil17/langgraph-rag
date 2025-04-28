@@ -1,0 +1,43 @@
+def test_invoke_single_process_in_out(mocker: MockerFixture) -> None:
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    chain = Channel.subscribe_to("input") | add_one | Channel.write_to("output")
+
+    app = Pregel(
+        nodes={
+            "one": chain,
+        },
+        channels={
+            "input": LastValue(int),
+            "output": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+    )
+    graph = Graph()
+    graph.add_node("add_one", add_one)
+    graph.set_entry_point("add_one")
+    graph.set_finish_point("add_one")
+    gapp = graph.compile()
+
+    if SHOULD_CHECK_SNAPSHOTS:
+        assert app.input_schema.model_json_schema() == {
+            "title": "LangGraphInput",
+            "type": "integer",
+        }
+        assert app.output_schema.model_json_schema() == {
+            "title": "LangGraphOutput",
+            "type": "integer",
+        }
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # raise warnings as errors
+            assert app.config_schema().model_json_schema() == {
+                "properties": {},
+                "title": "LangGraphConfig",
+                "type": "object",
+            }
+
+    assert app.invoke(2) == 3
+    assert app.invoke(2, output_keys=["output"]) == {"output": 3}
+    assert repr(app), "does not raise recursion error"
+
+    assert gapp.invoke(2, debug=True) == 3

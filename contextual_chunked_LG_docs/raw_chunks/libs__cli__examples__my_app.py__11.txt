@@ -1,0 +1,8 @@
+class MyContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Any, call_next: Any) -> Any:
+        token = my_context_var.set("Foobar")
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            my_context_var.reset(token)

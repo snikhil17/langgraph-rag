@@ -1,0 +1,2 @@
+class AgentStateExtraKey(AgentState):
+    foo: int

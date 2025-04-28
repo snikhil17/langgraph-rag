@@ -1,0 +1,99 @@
+"""Top-level config for langgraph-cli or similar deployment tooling."""
+class Config(TypedDict, total=False):
+
+
+    python_version: str
+    """Optional. Python version in 'major.minor' format (e.g. '3.11'). 
+    Must be at least 3.11 or greater for this deployment to function properly.
+    """
+
+    node_version: Optional[str]
+    """Optional. Node.js version as a major version (e.g. '20'), if your deployment needs Node.
+    Must be >= 20 if provided.
+    """
+
+    _INTERNAL_docker_tag: Optional[str]
+    """Optional. Internal use only.
+    """
+
+    pip_config_file: Optional[str]
+    """Optional. Path to a pip config file (e.g., "/etc/pip.conf" or "pip.ini") for controlling
+    package installation (custom indices, credentials, etc.).
+
+    Only relevant if Python dependencies are installed via pip. If omitted, default pip settings are used.
+    """
+
+    dockerfile_lines: list[str]
+    """Optional. Additional Docker instructions that will be appended to your base Dockerfile.
+
+    Useful for installing OS packages, setting environment variables, etc. 
+    Example:
+        dockerfile_lines=[
+            "RUN apt-get update && apt-get install -y libmagic-dev",
+            "ENV MY_CUSTOM_VAR=hello_world"
+        ]
+    """
+
+    dependencies: list[str]
+    """List of Python dependencies to install, either from PyPI or local paths.
+
+    Examples:
+      - "." or "./src" if you have a local Python package
+      - str (aka "anthropic") for a PyPI package
+      - "git+https://github.com/org/repo.git@main" for a Git-based package
+    Defaults to an empty list, meaning no additional packages installed beyond your base environment.
+    """
+
+    graphs: dict[str, str]
+    """Optional. Named definitions of graphs, each pointing to a Python object.
+
+
+    Graphs can be StateGraph, @entrypoint, or any other Pregel object OR they can point to (async) context
+    managers that accept a single configuration argument (of type RunnableConfig) and return a pregel object
+    (instance of Stategraph, etc.).
+
+    Keys are graph names, values are "path/to/file.py:object_name".
+    Example:
+        {
+            "mygraph": "graphs/my_graph.py:graph_definition",
+            "anothergraph": "graphs/another.py:get_graph"
+        }
+    """
+
+    env: Union[dict[str, str], str]
+    """Optional. Environment variables to set for your deployment.
+
+    - If given as a dict, keys are variable names and values are their values.
+    - If given as a string, it must be a path to a file containing lines in KEY=VALUE format.
+
+    Example as a dict:
+        env={"API_TOKEN": "abc123", "DEBUG": "true"}
+    Example as a file path:
+        env=".env"
+    """
+
+    store: Optional[StoreConfig]
+    """Optional. Configuration for the built-in long-term memory store, including semantic search indexing.
+
+    If omitted, no vector index is set up (the object store will still be present, however).
+    """
+
+    checkpointer: Optional[CheckpointerConfig]
+    """Optional. Configuration for the built-in checkpointer, which handles checkpointing of state.
+
+    If omitted, no checkpointer is set up (the object store will still be present, however).
+    """
+
+    auth: Optional[AuthConfig]
+    """Optional. Custom authentication config, including the path to your Python auth logic and 
+    the OpenAPI security definitions it uses.
+    """
+
+    http: Optional[HttpConfig]
+    """Optional. Configuration for the built-in HTTP server, controlling which custom routes are exposed
+    and how cross-origin requests are handled.
+    """
+
+    ui: Optional[dict[str, str]]
+    """Optional. Named definitions of UI components emitted by the agent, each pointing to a JS/TS file.
+    """

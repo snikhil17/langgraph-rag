@@ -1,0 +1,16 @@
+def prepare_next_tasks(
+    checkpoint: Checkpoint,
+    pending_writes: list[PendingWrite],
+    processes: Mapping[str, PregelNode],
+    channels: Mapping[str, BaseChannel],
+    managed: ManagedValueMapping,
+    config: RunnableConfig,
+    step: int,
+    *,
+    for_execution: Literal[False],
+    store: Literal[None] = None,
+    checkpointer: Literal[None] = None,
+    manager: Literal[None] = None,
+    trigger_to_nodes: Optional[Mapping[str, Sequence[str]]] = None,
+    updated_channels: Optional[set[str]] = None,
+) -> dict[str, PregelTask]: ...

@@ -1,0 +1,3 @@
+class ExecutorTask(TypedDict):
+    id: Optional[str]
+    path: tuple[Union[str, int], ...]

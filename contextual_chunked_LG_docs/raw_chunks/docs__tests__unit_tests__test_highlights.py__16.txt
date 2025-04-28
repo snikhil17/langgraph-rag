@@ -1,0 +1,11 @@
+"""Test that on page markdown behaves correctly."""
+def test_on_page_markdown_highlights() -> None:
+
+    # Create a dummy MkDocs File and Page object.
+    dummy_file = File("dummy.md", "dummy.md", "placeholder", use_directory_urls=False)
+    dummy_page = Page("Test Page", dummy_file, config=MkDocsConfig())
+
+    assert (
+        on_page_markdown(END_TO_END_INPUT_HIGHLIGHT_1, dummy_page)
+        == END_TO_END_INPUT_HIGHLIGHT_1_EXPECT
+    )

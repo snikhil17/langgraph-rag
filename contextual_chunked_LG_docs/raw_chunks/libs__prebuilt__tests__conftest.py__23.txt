@@ -1,0 +1,4 @@
+def checkpointer_memory():
+    from tests.memory_assert import MemorySaverAssertImmutable
+
+    yield MemorySaverAssertImmutable()

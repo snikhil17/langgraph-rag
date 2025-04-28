@@ -1,0 +1,14 @@
+"""Compute inner product between a vector X and a matrix Y.
+Lazy import numpy for efficiency."""
+def _inner_product(X: list[float], Y: list[list[float]]) -> list[float]:
+    """
+    Compute inner product between a vector X and a matrix Y.
+    Lazy import numpy for efficiency.
+    """
+
+    similarities = []
+    for y in Y:
+        similarity = sum(a * b for a, b in zip(X, y))
+        similarities.append(similarity)
+
+    return similarities

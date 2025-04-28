@@ -1,0 +1,7 @@
+def _get_adapter(tp: Any) -> Callable[[Any], Any]:
+    try:
+        return _adapter_cache[tp]
+    except KeyError:
+        fn = _adapter_for(tp)
+        _adapter_cache[tp] = fn
+        return fn

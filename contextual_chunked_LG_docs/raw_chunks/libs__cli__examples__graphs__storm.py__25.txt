@@ -1,0 +1,4 @@
+class RelatedSubjects(BaseModel):
+    topics: List[str] = Field(
+        description="Comprehensive list of related subjects as background research.",
+    )

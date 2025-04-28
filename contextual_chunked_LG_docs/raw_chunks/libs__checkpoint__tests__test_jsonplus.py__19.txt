@@ -1,0 +1,2 @@
+class InnerPydanticV1(BaseModelV1):
+    hello: str

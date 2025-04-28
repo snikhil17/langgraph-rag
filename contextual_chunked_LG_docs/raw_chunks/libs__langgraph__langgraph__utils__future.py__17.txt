@@ -1,0 +1,14 @@
+def chain_future(source: AnyFuture, destination: AnyFuture) -> AnyFuture:
+    # adapted from asyncio.run_coroutine_threadsafe
+    try:
+        _chain_future(source, destination)
+        return destination
+    except (SystemExit, KeyboardInterrupt):
+        raise
+    except BaseException as exc:
+        if isinstance(destination, concurrent.futures.Future):
+            if destination.set_running_or_notify_cancel():
+                destination.set_exception(exc)
+        else:
+            destination.set_exception(exc)
+        raise

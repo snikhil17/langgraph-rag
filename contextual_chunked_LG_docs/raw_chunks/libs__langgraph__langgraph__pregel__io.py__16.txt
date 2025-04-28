@@ -1,0 +1,6 @@
+class AddableValuesDict(AddableDict):
+    def __add__(self, other: dict[str, Any]) -> "AddableValuesDict":
+        return self | other
+
+    def __radd__(self, other: dict[str, Any]) -> "AddableValuesDict":
+        return other | self

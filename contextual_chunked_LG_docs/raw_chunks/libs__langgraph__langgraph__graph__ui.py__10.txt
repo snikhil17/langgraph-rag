@@ -1,0 +1,46 @@
+"""Delete a UI message by ID from the UI state.
+
+This function creates and sends a message to remove a UI component from the current state.
+It also updates the graph state to remove the UI message.
+
+Args:
+    id: Unique identifier of the UI component to remove.
+    state_key: Key in the graph state where the UI messages are stored. Defaults to "ui".
+
+Returns:
+    The remove UI message.
+
+Example:
+
+.. code-block:: python
+
+    delete_ui_message("message-123")"""
+def delete_ui_message(id: str, *, state_key: str = "ui") -> RemoveUIMessage:
+    """Delete a UI message by ID from the UI state.
+
+    This function creates and sends a message to remove a UI component from the current state.
+    It also updates the graph state to remove the UI message.
+
+    Args:
+        id: Unique identifier of the UI component to remove.
+        state_key: Key in the graph state where the UI messages are stored. Defaults to "ui".
+
+    Returns:
+        The remove UI message.
+
+    Example:
+
+    .. code-block:: python
+
+        delete_ui_message("message-123")
+
+    """
+    writer = get_stream_writer()
+    config = get_config()
+
+    evt: RemoveUIMessage = {"type": "remove-ui", "id": id}
+
+    writer(evt)
+    config[CONF][CONFIG_KEY_SEND]([(state_key, evt)])
+
+    return evt

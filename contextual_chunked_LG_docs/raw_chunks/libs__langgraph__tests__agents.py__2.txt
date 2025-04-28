@@ -1,0 +1,16 @@
+class AgentAction(BaseModel):
+    tool: str
+    tool_input: Union[str, dict]
+    log: str
+    type: Literal["AgentAction"] = "AgentAction"
+
+    model_config = {
+        "json_schema_extra": {
+            "description": (
+                """Represents a request to execute an action by an agent.
+
+The action consists of the name of the tool to execute and the input to pass
+to the tool. The log is used to pass along extra information about the action."""
+            )
+        }
+    }

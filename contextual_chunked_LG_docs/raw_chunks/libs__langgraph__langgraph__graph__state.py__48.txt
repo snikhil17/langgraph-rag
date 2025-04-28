@@ -1,0 +1,3 @@
+def _get_channel(
+    name: str, annotation: Any, *, allow_managed: Literal[True] = True
+) -> Union[BaseChannel, ManagedValueSpec]: ...

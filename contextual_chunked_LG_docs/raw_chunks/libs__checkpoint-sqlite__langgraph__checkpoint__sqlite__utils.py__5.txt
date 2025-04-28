@@ -1,0 +1,48 @@
+"""Return WHERE clause predicates for (a)search() given metadata filter
+and `before` config.
+
+This method returns a tuple of a string and a tuple of values. The string
+is the parametered WHERE clause predicate (including the WHERE keyword):
+"WHERE column1 = ? AND column2 IS ?". The tuple of values contains the
+values for each of the corresponding parameters."""
+def search_where(
+    config: Optional[RunnableConfig],
+    filter: Optional[Dict[str, Any]],
+    before: Optional[RunnableConfig] = None,
+) -> Tuple[str, Sequence[Any]]:
+    """Return WHERE clause predicates for (a)search() given metadata filter
+    and `before` config.
+
+    This method returns a tuple of a string and a tuple of values. The string
+    is the parametered WHERE clause predicate (including the WHERE keyword):
+    "WHERE column1 = ? AND column2 IS ?". The tuple of values contains the
+    values for each of the corresponding parameters.
+    """
+    wheres = []
+    param_values = []
+
+    # construct predicate for config filter
+    if config is not None:
+        wheres.append("thread_id = ?")
+        param_values.append(config["configurable"]["thread_id"])
+        checkpoint_ns = config["configurable"].get("checkpoint_ns")
+        if checkpoint_ns is not None:
+            wheres.append("checkpoint_ns = ?")
+            param_values.append(checkpoint_ns)
+
+        if checkpoint_id := get_checkpoint_id(config):
+            wheres.append("checkpoint_id = ?")
+            param_values.append(checkpoint_id)
+
+    # construct predicate for metadata filter
+    if filter:
+        metadata_predicates, metadata_values = _metadata_predicate(filter)
+        wheres.extend(metadata_predicates)
+        param_values.extend(metadata_values)
+
+    # construct predicate for `before`
+    if before is not None:
+        wheres.append("checkpoint_id < ?")
+        param_values.append(get_checkpoint_id(before))
+
+    return ("WHERE " + " AND ".join(wheres) if wheres else "", param_values)

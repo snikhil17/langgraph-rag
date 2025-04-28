@@ -1,0 +1,5 @@
+"""Raised when the checkpoint is not the latest version (for distributed mode)."""
+class CheckpointNotLatest(Exception):
+
+
+    pass

@@ -1,0 +1,3 @@
+def main(comment_install_cells):
+    process_notebooks(should_comment_install_cells=comment_install_cells)
+    logger.info("All notebooks processed successfully.")

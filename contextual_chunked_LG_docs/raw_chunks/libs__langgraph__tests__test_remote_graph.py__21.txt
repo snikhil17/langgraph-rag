@@ -1,0 +1,23 @@
+def test_invoke():
+    # set up test
+    mock_sync_client = MagicMock()
+    mock_sync_client.runs.stream.return_value = [
+        StreamPart(event="values", data={"chunk": "data1"}),
+        StreamPart(event="values", data={"chunk": "data2"}),
+        StreamPart(
+            event="values", data={"messages": [{"type": "human", "content": "world"}]}
+        ),
+    ]
+
+    # call method / assertions
+    remote_pregel = RemoteGraph(
+        "test_graph_id",
+        sync_client=mock_sync_client,
+    )
+
+    config = {"configurable": {"thread_id": "thread_1"}}
+    result = remote_pregel.invoke(
+        {"input": {"messages": [{"type": "human", "content": "hello"}]}}, config
+    )
+
+    assert result == {"messages": [{"type": "human", "content": "world"}]}

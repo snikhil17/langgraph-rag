@@ -1,0 +1,29 @@
+"""Metadata associated with a checkpoint."""
+class CheckpointMetadata(TypedDict, total=False):
+
+
+    source: Literal["input", "loop", "update", "fork"]
+    """The source of the checkpoint.
+
+    - "input": The checkpoint was created from an input to invoke/stream/batch.
+    - "loop": The checkpoint was created from inside the pregel loop.
+    - "update": The checkpoint was created from a manual state update.
+    - "fork": The checkpoint was created as a copy of another checkpoint.
+    """
+    step: int
+    """The step number of the checkpoint.
+
+    -1 for the first "input" checkpoint.
+    0 for the first "loop" checkpoint.
+    ... for the nth checkpoint afterwards.
+    """
+    writes: dict[str, Any]
+    """The writes that were made between the previous checkpoint and this one.
+
+    Mapping from node name to writes emitted by that node.
+    """
+    parents: dict[str, str]
+    """The IDs of the parent checkpoints.
+
+    Mapping from checkpoint namespace to checkpoint ID.
+    """

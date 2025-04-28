@@ -1,0 +1,60 @@
+"""Return the content of a .dockerignore file.
+
+This file is used to exclude files and directories from the Docker build context.
+
+It may be overly broad, but it's better to be safe than sorry.
+
+The main goal is to exclude .env files by default."""
+def _get_docker_ignore_content() -> str:
+    """Return the content of a .dockerignore file.
+
+    This file is used to exclude files and directories from the Docker build context.
+
+    It may be overly broad, but it's better to be safe than sorry.
+
+    The main goal is to exclude .env files by default.
+    """
+    return """\
+# Ignore node_modules and other dependency directories
+node_modules
+bower_components
+vendor
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Ignore .env files and other environment files
+.env
+.env.*
+*.local
+
+# Ignore git-related files
+.git
+.gitignore
+
+# Ignore Docker-related files and configs
+.dockerignore
+docker-compose.yml
+
+# Ignore build and cache directories
+dist
+build
+.cache
+__pycache__
+
+# Ignore IDE and editor configurations
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+.DS_Store  # macOS-specific
+
+# Ignore test and coverage files
+coverage
+*.coverage
+*.test.js
+*.spec.js
+tests
+"""

@@ -1,0 +1,2 @@
+class MessagesState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]

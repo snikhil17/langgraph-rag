@@ -1,0 +1,8 @@
+"""Parse a version string into a tuple of (major, minor)."""
+def _parse_version(version_str: str) -> tuple[int, int]:
+
+    try:
+        major, minor = map(int, version_str.split("-")[0].split("."))
+        return (major, minor)
+    except ValueError:
+        raise click.UsageError(f"Invalid version format: {version_str}") from None

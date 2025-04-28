@@ -1,0 +1,8 @@
+def task(
+    *,
+    name: Optional[str] = None,
+    retry: Optional[Union[RetryPolicy, Sequence[RetryPolicy]]] = None,
+) -> Callable[
+    [Union[Callable[P, Awaitable[T]], Callable[P, T]]],
+    Callable[P, SyncAsyncFuture[T]],
+]: ...

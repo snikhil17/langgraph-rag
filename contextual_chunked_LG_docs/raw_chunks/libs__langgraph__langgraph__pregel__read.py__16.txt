@@ -1,0 +1,82 @@
+"""Implements the logic for reading state from CONFIG_KEY_READ.
+Usable both as a runnable as well as a static method to call imperatively."""
+class ChannelRead(RunnableCallable):
+    """Implements the logic for reading state from CONFIG_KEY_READ.
+    Usable both as a runnable as well as a static method to call imperatively."""
+
+    channel: str | list[str]
+
+    fresh: bool = False
+
+    mapper: Callable[[Any], Any] | None = None
+
+    @property
+    def config_specs(self) -> list[ConfigurableFieldSpec]:
+        return [
+            ConfigurableFieldSpec(
+                id=CONFIG_KEY_READ,
+                name=CONFIG_KEY_READ,
+                description=None,
+                default=None,
+                annotation=None,
+            ),
+        ]
+
+    def __init__(
+        self,
+        channel: str | list[str],
+        *,
+        fresh: bool = False,
+        mapper: Callable[[Any], Any] | None = None,
+        tags: list[str] | None = None,
+    ) -> None:
+        super().__init__(
+            func=self._read,
+            afunc=self._aread,
+            tags=tags,
+            name=None,
+            trace=False,
+            func_accepts_config=True,
+        )
+        self.fresh = fresh
+        self.mapper = mapper
+        self.channel = channel
+
+    def get_name(self, suffix: str | None = None, *, name: str | None = None) -> str:
+        if name:
+            pass
+        elif isinstance(self.channel, str):
+            name = f"ChannelRead<{self.channel}>"
+        else:
+            name = f"ChannelRead<{','.join(self.channel)}>"
+        return super().get_name(suffix, name=name)
+
+    def _read(self, _: Any, config: RunnableConfig) -> Any:
+        return self.do_read(
+            config, select=self.channel, fresh=self.fresh, mapper=self.mapper
+        )
+
+    async def _aread(self, _: Any, config: RunnableConfig) -> Any:
+        return self.do_read(
+            config, select=self.channel, fresh=self.fresh, mapper=self.mapper
+        )
+
+    @staticmethod
+    def do_read(
+        config: RunnableConfig,
+        *,
+        select: str | list[str],
+        fresh: bool = False,
+        mapper: Callable[[Any], Any] | None = None,
+    ) -> Any:
+        try:
+            read: READ_TYPE = config[CONF][CONFIG_KEY_READ]
+        except KeyError:
+            raise RuntimeError(
+                "Not configured with a read function"
+                "Make sure to call in the context of a Pregel process"
+            )
+        if mapper:
+            return mapper(read(select, fresh))
+        else:
+            return read(select, fresh)

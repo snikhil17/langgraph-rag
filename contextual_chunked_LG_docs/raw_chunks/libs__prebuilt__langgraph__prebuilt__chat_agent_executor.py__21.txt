@@ -1,0 +1,9 @@
+"""The state of the agent."""
+class AgentState(TypedDict):
+
+
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+
+    is_last_step: IsLastStep
+
+    remaining_steps: RemainingSteps

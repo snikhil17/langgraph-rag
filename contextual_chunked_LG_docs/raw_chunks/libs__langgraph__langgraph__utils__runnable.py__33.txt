@@ -1,0 +1,4 @@
+class _RunnableWithConfigStore(Protocol[Input, Output]):
+    def __call__(
+        self, state: Input, *, config: RunnableConfig, store: BaseStore
+    ) -> Output: ...

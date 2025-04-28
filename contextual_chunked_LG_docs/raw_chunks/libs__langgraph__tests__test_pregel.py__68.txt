@@ -1,0 +1,26 @@
+def test_invoke_many_processes_in_out(mocker: MockerFixture) -> None:
+    test_size = 100
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+
+    nodes = {"-1": Channel.subscribe_to("input") | add_one | Channel.write_to("-1")}
+    for i in range(test_size - 2):
+        nodes[str(i)] = (
+            Channel.subscribe_to(str(i - 1)) | add_one | Channel.write_to(str(i))
+        )
+    nodes["last"] = Channel.subscribe_to(str(i)) | add_one | Channel.write_to("output")
+
+    app = Pregel(
+        nodes=nodes,
+        channels={str(i): LastValue(int) for i in range(-1, test_size - 2)}
+        | {"input": LastValue(int), "output": LastValue(int)},
+        input_channels="input",
+        output_channels="output",
+    )
+
+    for _ in range(10):
+        assert app.invoke(2, {"recursion_limit": test_size}) == 2 + test_size
+
+    with ThreadPoolExecutor() as executor:
+        assert [
+            *executor.map(app.invoke, [2] * 10, [{"recursion_limit": test_size}] * 10)
+        ] == [2 + test_size] * 10

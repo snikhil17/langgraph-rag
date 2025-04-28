@@ -1,0 +1,6 @@
+"""Response structure for searching items."""
+class SearchItemsResponse(TypedDict):
+
+
+    items: list[SearchItem]
+    """A list of items matching the search criteria."""

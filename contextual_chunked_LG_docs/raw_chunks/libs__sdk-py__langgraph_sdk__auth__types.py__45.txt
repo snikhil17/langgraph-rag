@@ -1,0 +1,46 @@
+"""Payload for updating an assistant.
+
+???+ example "Examples"
+    ```python
+    update_params = {
+        "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "graph_id": "graph123",
+        "config": {"key": "value"},
+        "metadata": {"owner": "user123"},
+        "name": "Assistant 1",
+        "version": 1
+    }
+    ```"""
+class AssistantsUpdate(typing.TypedDict, total=False):
+    """Payload for updating an assistant.
+
+    ???+ example "Examples"
+        ```python
+        update_params = {
+            "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "graph_id": "graph123",
+            "config": {"key": "value"},
+            "metadata": {"owner": "user123"},
+            "name": "Assistant 1",
+            "version": 1
+        }
+        ```
+    """
+
+    assistant_id: UUID
+    """Unique identifier for the assistant."""
+
+    graph_id: typing.Optional[str]
+    """typing.Optional graph ID to update."""
+
+    config: typing.Optional[typing.Union[typing.Dict[str, typing.Any], typing.Any]]
+    """typing.Optional configuration to update."""
+
+    metadata: MetadataInput
+    """typing.Optional metadata to update."""
+
+    name: typing.Optional[str]
+    """typing.Optional name to update."""
+
+    version: typing.Optional[int]
+    """typing.Optional version to update."""

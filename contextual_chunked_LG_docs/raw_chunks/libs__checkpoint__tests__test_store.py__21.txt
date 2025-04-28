@@ -1,0 +1,2 @@
+def fake_embeddings() -> CharacterEmbeddings:
+    return CharacterEmbeddings(dims=500)

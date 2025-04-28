@@ -1,0 +1,9 @@
+def is_readonly_managed_value(value: Any) -> TypeGuard[type[ManagedValue]]:
+    return (
+        isclass(value)
+        and issubclass(value, ManagedValue)
+        and not issubclass(value, WritableManagedValue)
+    ) or (
+        isinstance(value, ConfiguredManagedValue)
+        and not issubclass(value.cls, WritableManagedValue)
+    )

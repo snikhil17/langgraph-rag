@@ -1,0 +1,11 @@
+class DefaultConsumer(KafkaConsumer):
+    def getmany(
+        self, timeout_ms: int, max_records: int
+    ) -> dict[TopicPartition, Sequence[ConsumerRecord]]:
+        return self.poll(timeout_ms=timeout_ms, max_records=max_records)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()

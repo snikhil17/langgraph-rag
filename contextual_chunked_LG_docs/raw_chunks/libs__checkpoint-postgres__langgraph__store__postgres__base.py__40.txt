@@ -1,0 +1,10 @@
+def _json_loads(content: Union[bytes, orjson.Fragment]) -> Any:
+    if isinstance(content, orjson.Fragment):
+        if hasattr(content, "buf"):
+            content = content.buf
+        else:
+            if isinstance(content.contents, bytes):
+                content = content.contents
+            else:
+                content = content.contents.encode()
+    return orjson.loads(cast(bytes, content))

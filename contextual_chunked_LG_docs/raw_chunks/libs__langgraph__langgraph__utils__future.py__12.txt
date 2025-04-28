@@ -1,0 +1,10 @@
+def _get_loop(fut: asyncio.Future) -> asyncio.AbstractEventLoop:
+    # Tries to call Future.get_loop() if it's available.
+    # Otherwise fallbacks to using the old '_loop' property.
+    try:
+        get_loop = fut.get_loop
+    except AttributeError:
+        pass
+    else:
+        return get_loop()
+    return fut._loop

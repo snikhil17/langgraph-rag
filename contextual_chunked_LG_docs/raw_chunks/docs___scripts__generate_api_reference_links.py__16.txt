@@ -1,0 +1,76 @@
+"""Update markdown to include API reference links for imports in Python code blocks.
+
+This function scans the markdown content for Python code blocks, extracts any
+imports, and appends links to their API documentation.
+
+Args:
+    markdown: The markdown content to process.
+    path: The path of the file where the markdown content originated.
+
+Returns:
+    Updated markdown with API reference links prepended to Python code blocks.
+
+Example:
+    Given a markdown with a Python code block:
+
+    ```python
+    from langchain.nlp import TextGenerator
+    ```
+    This function will append an API reference link to the `TextGenerator` class
+    from the `langchain.nlp` module if it's recognized."""
+def update_markdown_with_imports(markdown: str, path: str) -> str:
+    """Update markdown to include API reference links for imports in Python code blocks.
+
+    This function scans the markdown content for Python code blocks, extracts any
+    imports, and appends links to their API documentation.
+
+    Args:
+        markdown: The markdown content to process.
+        path: The path of the file where the markdown content originated.
+
+    Returns:
+        Updated markdown with API reference links prepended to Python code blocks.
+
+    Example:
+        Given a markdown with a Python code block:
+
+        ```python
+        from langchain.nlp import TextGenerator
+        ```
+        This function will append an API reference link to the `TextGenerator` class
+        from the `langchain.nlp` module if it's recognized.
+    """
+    code_block_pattern = re.compile(
+        r"(?P<indent>[ \t]*)```(?P<language>python|py)\n(?P<code>.*?)\n(?P=indent)```",
+        re.DOTALL,
+    )
+
+    def replace_code_block(match: re.Match) -> str:
+        """Replace the matched code block with additional API reference links if imports are found.
+
+        Args:
+            match (re.Match): The regex match object containing the code block.
+
+        Returns:
+            str: The modified code block with API reference links prepended if applicable.
+        """
+        indent = match.group("indent")
+        code_block = match.group("code")
+        # Retrieve import information from the code block
+        imports = get_imports(code_block, "__unused__")
+
+        original_code_block = match.group(0)
+        # If no imports are found, return the original code block
+        if not imports:
+            return original_code_block
+
+        # Generate API reference links for each import
+        api_links = " | ".join(
+            f'<a href="{imp["docs"]}">{imp["imported"]}</a>' for imp in imports
+        )
+        # Return the code block with prepended API reference links
+        return f"{indent}API Reference: {api_links}\n\n{original_code_block}"
+
+    # Apply the replace_code_block function to all matches in the markdown
+    updated_markdown = code_block_pattern.sub(replace_code_block, markdown)
+    return updated_markdown

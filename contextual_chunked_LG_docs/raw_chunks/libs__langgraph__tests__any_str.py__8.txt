@@ -1,0 +1,9 @@
+class AnyVersion:
+    def __init__(self) -> None:
+        super().__init__()
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, (str, int, float))
+
+    def __hash__(self) -> int:
+        return hash(str(self))

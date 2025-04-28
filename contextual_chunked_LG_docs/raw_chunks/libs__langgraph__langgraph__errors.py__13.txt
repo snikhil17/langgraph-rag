@@ -1,0 +1,5 @@
+class ParentCommand(GraphBubbleUp):
+    args: tuple[Command]
+
+    def __init__(self, command: Command) -> None:
+        super().__init__(command)

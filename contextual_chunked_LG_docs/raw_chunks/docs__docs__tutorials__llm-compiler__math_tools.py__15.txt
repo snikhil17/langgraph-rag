@@ -1,0 +1,18 @@
+def _evaluate_expression(expression: str) -> str:
+    try:
+        local_dict = {"pi": math.pi, "e": math.e}
+        output = str(
+            numexpr.evaluate(
+                expression.strip(),
+                global_dict={},  # restrict access to globals
+                local_dict=local_dict,  # add common mathematical functions
+            )
+        )
+    except Exception as e:
+        raise ValueError(
+            f'Failed to evaluate "{expression}". Raised error: {repr(e)}.'
+            " Please try again with a valid numerical expression"
+        )
+
+    # Remove any leading and trailing brackets from the output
+    return re.sub(r"^\[|\]$", "", output)

@@ -1,0 +1,4 @@
+"""Create a new LangGraph project from a template."""
+def new(path: Optional[str], template: Optional[str]) -> None:
+
+    return create_new(path, template)

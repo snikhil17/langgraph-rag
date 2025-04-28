@@ -1,0 +1,17 @@
+"""Configuration for vector embeddings in PostgreSQL store with pgvector-specific options.
+
+Extends EmbeddingConfig with additional configuration for pgvector index and vector types."""
+class PostgresIndexConfig(IndexConfig, total=False):
+    """Configuration for vector embeddings in PostgreSQL store with pgvector-specific options.
+
+    Extends EmbeddingConfig with additional configuration for pgvector index and vector types.
+    """
+
+    ann_index_config: ANNIndexConfig
+    """Specific configuration for the chosen index type (HNSW or IVF Flat)."""
+    distance_type: Literal["l2", "inner_product", "cosine"]
+    """Distance metric to use for vector similarity search:
+    - 'l2': Euclidean distance
+    - 'inner_product': Dot product
+    - 'cosine': Cosine similarity
+    """

@@ -1,0 +1,399 @@
+def test_prebuilt_tool_chat(snapshot: SnapshotAssertion) -> None:
+    from langchain_core.messages import AIMessage, HumanMessage
+    from langchain_core.tools import tool
+
+    @tool()
+    def search_api(query: str) -> str:
+        """Searches the API for the query."""
+        return f"result for {query}"
+
+    tools = [search_api]
+
+    model = FakeChatModel(
+        messages=[
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "tool_call123",
+                        "name": "search_api",
+                        "args": {"query": "query"},
+                    },
+                ],
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "tool_call234",
+                        "name": "search_api",
+                        "args": {"query": "another"},
+                    },
+                    {
+                        "id": "tool_call567",
+                        "name": "search_api",
+                        "args": {"query": "a third one"},
+                    },
+                ],
+            ),
+            AIMessage(content="answer"),
+        ]
+    )
+
+    app = create_react_agent(model, tools)
+
+    if SHOULD_CHECK_SNAPSHOTS:
+        assert json.dumps(app.get_input_schema().model_json_schema()) == snapshot
+        assert json.dumps(app.get_output_schema().model_json_schema()) == snapshot
+        assert json.dumps(app.get_graph().to_json(), indent=2) == snapshot
+        assert app.get_graph().draw_mermaid(with_styles=False) == snapshot
+
+    assert app.invoke(
+        {"messages": [HumanMessage(content="what is weather in sf")]}
+    ) == {
+        "messages": [
+            _AnyIdHumanMessage(content="what is weather in sf"),
+            _AnyIdAIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "tool_call123",
+                        "name": "search_api",
+                        "args": {"query": "query"},
+                    },
+                ],
+            ),
+            _AnyIdToolMessage(
+                content="result for query",
+                name="search_api",
+                tool_call_id="tool_call123",
+            ),
+            _AnyIdAIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "tool_call234",
+                        "name": "search_api",
+                        "args": {"query": "another"},
+                    },
+                    {
+                        "id": "tool_call567",
+                        "name": "search_api",
+                        "args": {"query": "a third one"},
+                    },
+                ],
+            ),
+            _AnyIdToolMessage(
+                content="result for another",
+                name="search_api",
+                tool_call_id="tool_call234",
+            ),
+            _AnyIdToolMessage(
+                content="result for a third one",
+                name="search_api",
+                tool_call_id="tool_call567",
+                id=AnyStr(),
+            ),
+            _AnyIdAIMessage(content="answer"),
+        ]
+    }
+
+    assert [
+        c
+        for c in app.stream(
+            {"messages": [HumanMessage(content="what is weather in sf")]},
+            stream_mode="messages",
+        )
+    ] == [
+        (
+            _AnyIdAIMessageChunk(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "search_api",
+                        "args": {"query": "query"},
+                        "id": "tool_call123",
+                        "type": "tool_call",
+                    }
+                ],
+                tool_call_chunks=[
+                    {
+                        "name": "search_api",
+                        "args": '{"query": "query"}',
+                        "id": "tool_call123",
+                        "index": None,
+                        "type": "tool_call_chunk",
+                    }
+                ],
+            ),
+            {
+                "langgraph_step": 1,
+                "langgraph_node": "agent",
+                "langgraph_triggers": ("branch:to:agent",),
+                "langgraph_path": (PULL, "agent"),
+                "langgraph_checkpoint_ns": AnyStr("agent:"),
+                "checkpoint_ns": AnyStr("agent:"),
+                "ls_provider": "fakechatmodel",
+                "ls_model_type": "chat",
+            },
+        ),
+        (
+            _AnyIdToolMessage(
+                content="result for query",
+                name="search_api",
+                tool_call_id="tool_call123",
+            ),
+            {
+                "langgraph_step": 2,
+                "langgraph_node": "tools",
+                "langgraph_triggers": ("branch:to:tools",),
+                "langgraph_path": (PULL, "tools"),
+                "langgraph_checkpoint_ns": AnyStr("tools:"),
+            },
+        ),
+        (
+            _AnyIdAIMessageChunk(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "search_api",
+                        "args": {"query": "another"},
+                        "id": "tool_call234",
+                        "type": "tool_call",
+                    },
+                    {
+                        "name": "search_api",
+                        "args": {"query": "a third one"},
+                        "id": "tool_call567",
+                        "type": "tool_call",
+                    },
+                ],
+                tool_call_chunks=[
+                    {
+                        "name": "search_api",
+                        "args": '{"query": "another"}',
+                        "id": "tool_call234",
+                        "index": None,
+                        "type": "tool_call_chunk",
+                    },
+                    {
+                        "name": "search_api",
+                        "args": '{"query": "a third one"}',
+                        "id": "tool_call567",
+                        "index": None,
+                        "type": "tool_call_chunk",
+                    },
+                ],
+            ),
+            {
+                "langgraph_step": 3,
+                "langgraph_node": "agent",
+                "langgraph_triggers": ("branch:to:agent",),
+                "langgraph_path": (PULL, "agent"),
+                "langgraph_checkpoint_ns": AnyStr("agent:"),
+                "checkpoint_ns": AnyStr("agent:"),
+                "ls_provider": "fakechatmodel",
+                "ls_model_type": "chat",
+            },
+        ),
+        (
+            _AnyIdToolMessage(
+                content="result for another",
+                name="search_api",
+                tool_call_id="tool_call234",
+            ),
+            {
+                "langgraph_step": 4,
+                "langgraph_node": "tools",
+                "langgraph_triggers": ("branch:to:tools",),
+                "langgraph_path": (PULL, "tools"),
+                "langgraph_checkpoint_ns": AnyStr("tools:"),
+            },
+        ),
+        (
+            _AnyIdToolMessage(
+                content="result for a third one",
+                name="search_api",
+                tool_call_id="tool_call567",
+            ),
+            {
+                "langgraph_step": 4,
+                "langgraph_node": "tools",
+                "langgraph_triggers": ("branch:to:tools",),
+                "langgraph_path": (PULL, "tools"),
+                "langgraph_checkpoint_ns": AnyStr("tools:"),
+            },
+        ),
+        (
+            _AnyIdAIMessageChunk(
+                content="answer",
+            ),
+            {
+                "langgraph_step": 5,
+                "langgraph_node": "agent",
+                "langgraph_triggers": ("branch:to:agent",),
+                "langgraph_path": (PULL, "agent"),
+                "langgraph_checkpoint_ns": AnyStr("agent:"),
+                "checkpoint_ns": AnyStr("agent:"),
+                "ls_provider": "fakechatmodel",
+                "ls_model_type": "chat",
+            },
+        ),
+    ]
+
+    assert app.invoke(
+        {"messages": [HumanMessage(content="what is weather in sf")]},
+        {"recursion_limit": 2},
+        debug=True,
+    ) == {
+        "messages": [
+            _AnyIdHumanMessage(content="what is weather in sf"),
+            _AnyIdAIMessage(content="Sorry, need more steps to process this request."),
+        ]
+    }
+
+    model.i = 0  # reset the model
+
+    assert (
+        app.invoke(
+            {"messages": [HumanMessage(content="what is weather in sf")]},
+            stream_mode="updates",
+        )[0]["agent"]["messages"]
+        == [
+            {
+                "agent": {
+                    "messages": [
+                        _AnyIdAIMessage(
+                            content="",
+                            tool_calls=[
+                                {
+                                    "id": "tool_call123",
+                                    "name": "search_api",
+                                    "args": {"query": "query"},
+                                },
+                            ],
+                        )
+                    ]
+                }
+            },
+            {
+                "tools": {
+                    "messages": [
+                        _AnyIdToolMessage(
+                            content="result for query",
+                            name="search_api",
+                            tool_call_id="tool_call123",
+                        )
+                    ]
+                }
+            },
+            {
+                "agent": {
+                    "messages": [
+                        _AnyIdAIMessage(
+                            content="",
+                            tool_calls=[
+                                {
+                                    "id": "tool_call234",
+                                    "name": "search_api",
+                                    "args": {"query": "another"},
+                                },
+                                {
+                                    "id": "tool_call567",
+                                    "name": "search_api",
+                                    "args": {"query": "a third one"},
+                                },
+                            ],
+                        )
+                    ]
+                }
+            },
+            {
+                "tools": {
+                    "messages": [
+                        _AnyIdToolMessage(
+                            content="result for another",
+                            name="search_api",
+                            tool_call_id="tool_call234",
+                        ),
+                        _AnyIdToolMessage(
+                            content="result for a third one",
+                            name="search_api",
+                            tool_call_id="tool_call567",
+                        ),
+                    ]
+                }
+            },
+            {"agent": {"messages": [_AnyIdAIMessage(content="answer")]}},
+        ][0]["agent"]["messages"]
+    )
+
+    assert [
+        *app.stream({"messages": [HumanMessage(content="what is weather in sf")]})
+    ] == [
+        {
+            "agent": {
+                "messages": [
+                    _AnyIdAIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "id": "tool_call123",
+                                "name": "search_api",
+                                "args": {"query": "query"},
+                            },
+                        ],
+                    )
+                ]
+            }
+        },
+        {
+            "tools": {
+                "messages": [
+                    _AnyIdToolMessage(
+                        content="result for query",
+                        name="search_api",
+                        tool_call_id="tool_call123",
+                    )
+                ]
+            }
+        },
+        {
+            "agent": {
+                "messages": [
+                    _AnyIdAIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "id": "tool_call234",
+                                "name": "search_api",
+                                "args": {"query": "another"},
+                            },
+                            {
+                                "id": "tool_call567",
+                                "name": "search_api",
+                                "args": {"query": "a third one"},
+                            },
+                        ],
+                    )
+                ]
+            }
+        },
+        {
+            "tools": {
+                "messages": [
+                    _AnyIdToolMessage(
+                        content="result for another",
+                        name="search_api",
+                        tool_call_id="tool_call234",
+                    ),
+                    _AnyIdToolMessage(
+                        content="result for a third one",
+                        name="search_api",
+                        tool_call_id="tool_call567",
+                    ),
+                ]
+            }
+        },
+        {"agent": {"messages": [_AnyIdAIMessage(content="answer")]}},
+    ]

@@ -1,0 +1,71 @@
+"""Tokenize a path into components.
+
+!!! info "Types handled"
+    - Simple paths: "field1.field2"
+    - Array indexing: "[0]", "[*]", "[-1]"
+    - Wildcards: "*"
+    - Multi-field selection: "{field1,field2}""""
+def tokenize_path(path: str) -> list[str]:
+    """Tokenize a path into components.
+
+    !!! info "Types handled"
+        - Simple paths: "field1.field2"
+        - Array indexing: "[0]", "[*]", "[-1]"
+        - Wildcards: "*"
+        - Multi-field selection: "{field1,field2}"
+    """
+    if not path:
+        return []
+
+    tokens = []
+    current: list[str] = []
+    i = 0
+    while i < len(path):
+        char = path[i]
+
+        if char == "[":  # Handle array index
+            if current:
+                tokens.append("".join(current))
+                current = []
+            bracket_count = 1
+            index_chars = ["["]
+            i += 1
+            while i < len(path) and bracket_count > 0:
+                if path[i] == "[":
+                    bracket_count += 1
+                elif path[i] == "]":
+                    bracket_count -= 1
+                index_chars.append(path[i])
+                i += 1
+            tokens.append("".join(index_chars))
+            continue
+
+        elif char == "{":  # Handle multi-field selection
+            if current:
+                tokens.append("".join(current))
+                current = []
+            brace_count = 1
+            field_chars = ["{"]
+            i += 1
+            while i < len(path) and brace_count > 0:
+                if path[i] == "{":
+                    brace_count += 1
+                elif path[i] == "}":
+                    brace_count -= 1
+                field_chars.append(path[i])
+                i += 1
+            tokens.append("".join(field_chars))
+            continue
+
+        elif char == ".":  # Handle regular field
+            if current:
+                tokens.append("".join(current))
+                current = []
+        else:
+            current.append(char)
+        i += 1
+
+    if current:
+        tokens.append("".join(current))
+
+    return tokens

@@ -1,0 +1,205 @@
+"""A much simpler version of RunnableLambda that requires sync and async functions."""
+class RunnableCallable(Runnable):
+
+
+    def __init__(
+        self,
+        func: Optional[Callable[..., Union[Any, Runnable]]],
+        afunc: Optional[Callable[..., Awaitable[Union[Any, Runnable]]]] = None,
+        *,
+        name: Optional[str] = None,
+        tags: Optional[Sequence[str]] = None,
+        trace: bool = True,
+        recurse: bool = True,
+        explode_args: bool = False,
+        func_accepts_config: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> None:
+        self.name = name
+        if self.name is None:
+            if func:
+                try:
+                    if func.__name__ != "<lambda>":
+                        self.name = func.__name__
+                except AttributeError:
+                    pass
+            elif afunc:
+                try:
+                    self.name = afunc.__name__
+                except AttributeError:
+                    pass
+        self.func = func
+        self.afunc = afunc
+        self.tags = tags
+        self.kwargs = kwargs
+        self.trace = trace
+        self.recurse = recurse
+        self.explode_args = explode_args
+        # check signature
+        if func is None and afunc is None:
+            raise ValueError("At least one of func or afunc must be provided.")
+
+        if func_accepts_config is not None:
+            self.func_accepts_config = func_accepts_config
+            self.func_accepts: dict[str, tuple[str, Any]] = {}
+        else:
+            params = inspect.signature(cast(Callable, func or afunc)).parameters
+
+            self.func_accepts_config = "config" in params
+            # Mapping from kwarg name to (config key, default value) to be used.
+            # The default value is used if the config key is not found in the config.
+            self.func_accepts = {}
+
+            for kw, typ, config_key, default in KWARGS_CONFIG_KEYS:
+                p = params.get(kw)
+
+                if p is None or p.kind not in VALID_KINDS:
+                    # If parameter is not found or is not a valid kind, skip
+                    continue
+
+                if typ != (ANY_TYPE,) and p.annotation not in typ:
+                    # A specific type is required, but the function annotation does
+                    # not match the expected type.
+                    continue
+
+                # If the kwarg is accepted by the function, store the default value
+                self.func_accepts[kw] = (config_key, default)
+
+    def __repr__(self) -> str:
+        repr_args = {
+            k: v
+            for k, v in self.__dict__.items()
+            if k not in {"name", "func", "afunc", "config", "kwargs", "trace"}
+        }
+        return f"{self.get_name()}({', '.join(f'{k}={v!r}' for k, v in repr_args.items())})"
+
+    def invoke(
+        self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
+    ) -> Any:
+        if self.func is None:
+            raise TypeError(
+                f'No synchronous function provided to "{self.name}".'
+                "\nEither initialize with a synchronous function or invoke"
+                " via the async API (ainvoke, astream, etc.)"
+            )
+        if config is None:
+            config = ensure_config()
+        if self.explode_args:
+            args, _kwargs = input
+            kwargs = {**self.kwargs, **_kwargs, **kwargs}
+        else:
+            args = (input,)
+            kwargs = {**self.kwargs, **kwargs}
+        if self.func_accepts_config:
+            kwargs["config"] = config
+        _conf = config[CONF]
+
+        for kw, (config_key, default_value) in self.func_accepts.items():
+            # If the kwarg is already set, use the set value
+            if kw in kwargs:
+                continue
+
+            if (
+                # If the kwarg is requested, but isn't in the config AND has no
+                # default value, raise an error
+                config_key not in _conf and default_value is inspect.Parameter.empty
+            ):
+                raise ValueError(
+                    f"Missing required config key '{config_key}' for '{self.name}'."
+                )
+
+            kwargs[kw] = _conf.get(config_key, default_value)
+
+        if self.trace:
+            callback_manager = get_callback_manager_for_config(config, self.tags)
+            run_manager = callback_manager.on_chain_start(
+                None,
+                input,
+                name=config.get("run_name") or self.get_name(),
+                run_id=config.pop("run_id", None),
+            )
+            try:
+                child_config = patch_config(config, callbacks=run_manager.get_child())
+                # get the run
+                for h in run_manager.handlers:
+                    if isinstance(h, LangChainTracer):
+                        run = h.run_map.get(str(run_manager.run_id))
+                        break
+                else:
+                    run = None
+                # run in context
+                with set_config_context(child_config, run) as context:
+                    ret = context.run(self.func, *args, **kwargs)
+            except BaseException as e:
+                run_manager.on_chain_error(e)
+                raise
+            else:
+                run_manager.on_chain_end(ret)
+        else:
+            ret = self.func(*args, **kwargs)
+        if self.recurse and isinstance(ret, Runnable):
+            return ret.invoke(input, config)
+        return ret
+
+    async def ainvoke(
+        self, input: Any, config: Optional[RunnableConfig] = None, **kwargs: Any
+    ) -> Any:
+        if not self.afunc:
+            return self.invoke(input, config)
+        if config is None:
+            config = ensure_config()
+        if self.explode_args:
+            args, _kwargs = input
+            kwargs = {**self.kwargs, **_kwargs, **kwargs}
+        else:
+            args = (input,)
+            kwargs = {**self.kwargs, **kwargs}
+        if self.func_accepts_config:
+            kwargs["config"] = config
+        _conf = config[CONF]
+        for kw, (config_key, default_value) in self.func_accepts.items():
+            # If the kwarg has already been set, use the set value
+            if kw in kwargs:
+                continue
+
+            if (
+                # If the kwarg is requested, but isn't in the config AND has no
+                # default value, raise an error
+                config_key not in _conf and default_value is inspect.Parameter.empty
+            ):
+                raise ValueError(
+                    f"Missing required config key '{config_key}' for '{self.name}'."
+                )
+            kwargs[kw] = _conf.get(config_key, default_value)
+        if self.trace:
+            callback_manager = get_async_callback_manager_for_config(config, self.tags)
+            run_manager = await callback_manager.on_chain_start(
+                None,
+                input,
+                name=config.get("run_name") or self.name,
+                run_id=config.pop("run_id", None),
+            )
+            try:
+                child_config = patch_config(config, callbacks=run_manager.get_child())
+                coro = cast(Coroutine[None, None, Any], self.afunc(*args, **kwargs))
+                if ASYNCIO_ACCEPTS_CONTEXT:
+                    for h in run_manager.handlers:
+                        if isinstance(h, LangChainTracer):
+                            run = h.run_map.get(str(run_manager.run_id))
+                            break
+                    else:
+                        run = None
+                    with set_config_context(child_config, run) as context:
+                        ret = await asyncio.create_task(coro, context=context)
+                else:
+                    ret = await coro
+            except BaseException as e:
+                await run_manager.on_chain_error(e)
+                raise
+            else:
+                await run_manager.on_chain_end(ret)
+        else:
+            ret = await self.afunc(*args, **kwargs)
+        if self.recurse and isinstance(ret, Runnable):
+            return await ret.ainvoke(input, config)
+        return ret

@@ -1,0 +1,6 @@
+"""Create ai message with an any id field."""
+def _AnyIdAIMessageChunk(**kwargs: Any) -> AIMessageChunk:
+
+    message = AIMessageChunk(**kwargs)
+    message.id = AnyStr()
+    return message

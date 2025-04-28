@@ -1,0 +1,22 @@
+"""Create a docker compose file as a string."""
+def compose(
+    capabilities: DockerCapabilities,
+    *,
+    port: int,
+    debugger_port: Optional[int] = None,
+    debugger_base_url: Optional[str] = None,
+    # postgres://user:password@host:port/database?option=value
+    postgres_uri: Optional[str] = None,
+    image: Optional[str] = None,
+) -> str:
+
+    compose_content = compose_as_dict(
+        capabilities,
+        port=port,
+        debugger_port=debugger_port,
+        debugger_base_url=debugger_base_url,
+        postgres_uri=postgres_uri,
+        image=image,
+    )
+    compose_str = dict_to_yaml(compose_content)
+    return compose_str

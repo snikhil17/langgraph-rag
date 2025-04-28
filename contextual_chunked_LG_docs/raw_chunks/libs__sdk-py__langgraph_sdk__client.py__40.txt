@@ -1,0 +1,3 @@
+def configure_loopback_transports(app: Any) -> None:
+    for transport in _registered_transports:
+        transport.app = app

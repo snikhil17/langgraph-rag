@@ -1,0 +1,9 @@
+def call_model(state, config):
+    if config["configurable"].get("model", "anthropic") == "anthropic":
+        model = model_anth
+    else:
+        model = model_oai
+    messages = state["messages"]
+    response = model.invoke(messages)
+    # We return a list, because this will get added to the existing list
+    return {"messages": [response]}

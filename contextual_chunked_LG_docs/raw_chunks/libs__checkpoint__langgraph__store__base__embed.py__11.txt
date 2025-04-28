@@ -1,0 +1,155 @@
+"""Wrapper to convert embedding functions into LangChain's Embeddings interface.
+
+This class allows arbitrary embedding functions to be used with LangChain-compatible
+tools. It supports both synchronous and asynchronous operations, and can handle:
+1. A synchronous function for sync operations (async operations will use sync function)
+2. An async function for both sync/async operations (sync operations will raise an error)
+
+The embedding functions should convert text into fixed-dimensional vectors that
+capture the semantic meaning of the text.
+
+Args:
+    func: Function that converts text to embeddings. Can be sync or async.
+        If async, it will be used for async operations, but sync operations
+        will raise an error. If sync, it will be used for both sync and async operations.
+
+??? example "Examples"
+    With a sync function:
+    ```python
+    def my_embed_fn(texts):
+        # Return 2D embeddings for each text
+        return [[0.1, 0.2] for _ in texts]
+
+    embeddings = EmbeddingsLambda(my_embed_fn)
+    result = embeddings.embed_query("hello")  # Returns [0.1, 0.2]
+    await embeddings.aembed_query("hello")  # Also returns [0.1, 0.2]
+    ```
+
+    With an async function:
+    ```python
+    async def my_async_fn(texts):
+        return [[0.1, 0.2] for _ in texts]
+
+    embeddings = EmbeddingsLambda(my_async_fn)
+    await embeddings.aembed_query("hello")  # Returns [0.1, 0.2]
+    # Note: embed_query() would raise an error
+    ```"""
+class EmbeddingsLambda(Embeddings):
+    """Wrapper to convert embedding functions into LangChain's Embeddings interface.
+
+    This class allows arbitrary embedding functions to be used with LangChain-compatible
+    tools. It supports both synchronous and asynchronous operations, and can handle:
+    1. A synchronous function for sync operations (async operations will use sync function)
+    2. An async function for both sync/async operations (sync operations will raise an error)
+
+    The embedding functions should convert text into fixed-dimensional vectors that
+    capture the semantic meaning of the text.
+
+    Args:
+        func: Function that converts text to embeddings. Can be sync or async.
+            If async, it will be used for async operations, but sync operations
+            will raise an error. If sync, it will be used for both sync and async operations.
+
+    ??? example "Examples"
+        With a sync function:
+        ```python
+        def my_embed_fn(texts):
+            # Return 2D embeddings for each text
+            return [[0.1, 0.2] for _ in texts]
+
+        embeddings = EmbeddingsLambda(my_embed_fn)
+        result = embeddings.embed_query("hello")  # Returns [0.1, 0.2]
+        await embeddings.aembed_query("hello")  # Also returns [0.1, 0.2]
+        ```
+
+        With an async function:
+        ```python
+        async def my_async_fn(texts):
+            return [[0.1, 0.2] for _ in texts]
+
+        embeddings = EmbeddingsLambda(my_async_fn)
+        await embeddings.aembed_query("hello")  # Returns [0.1, 0.2]
+        # Note: embed_query() would raise an error
+        ```
+    """
+
+    def __init__(
+        self,
+        func: Union[EmbeddingsFunc, AEmbeddingsFunc],
+    ) -> None:
+        if func is None:
+            raise ValueError("func must be provided")
+        if _is_async_callable(func):
+            self.afunc = func
+        else:
+            self.func = func
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed a list of texts into vectors.
+
+        Args:
+            texts: list of texts to convert to embeddings.
+
+        Returns:
+            list of embeddings, one per input text. Each embedding is a list of floats.
+
+        Raises:
+            ValueError: If the instance was initialized with only an async function.
+        """
+        func = getattr(self, "func", None)
+        if func is None:
+            raise ValueError(
+                "EmbeddingsLambda was initialized with an async function but no sync function. "
+                "Use aembed_documents for async operation or provide a sync function."
+            )
+        return func(texts)
+
+    def embed_query(self, text: str) -> list[float]:
+        """Embed a single piece of text.
+
+        Args:
+            text: Text to convert to an embedding.
+
+        Returns:
+            Embedding vector as a list of floats.
+
+        Note:
+            This is equivalent to calling embed_documents with a single text
+            and taking the first result.
+        """
+        return self.embed_documents([text])[0]
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Asynchronously embed a list of texts into vectors.
+
+        Args:
+            texts: list of texts to convert to embeddings.
+
+        Returns:
+            list of embeddings, one per input text. Each embedding is a list of floats.
+
+        Note:
+            If no async function was provided, this falls back to the sync implementation.
+        """
+        afunc = getattr(self, "afunc", None)
+        if afunc is None:
+            return await super().aembed_documents(texts)
+        return await afunc(texts)
+
+    async def aembed_query(self, text: str) -> list[float]:
+        """Asynchronously embed a single piece of text.
+
+        Args:
+            text: Text to convert to an embedding.
+
+        Returns:
+            Embedding vector as a list of floats.
+
+        Note:
+            This is equivalent to calling aembed_documents with a single text
+            and taking the first result.
+        """
+        afunc = getattr(self, "afunc", None)
+        if afunc is None:
+            return await super().aembed_query(text)
+        return (await afunc([text]))[0]

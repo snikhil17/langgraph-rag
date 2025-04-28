@@ -1,0 +1,17 @@
+"""Apply a comparison operator, matching PostgreSQL's JSONB behavior."""
+def _apply_operator(value: Any, operator: str, op_value: Any) -> bool:
+
+    if operator == "$eq":
+        return value == op_value
+    elif operator == "$gt":
+        return float(value) > float(op_value)
+    elif operator == "$gte":
+        return float(value) >= float(op_value)
+    elif operator == "$lt":
+        return float(value) < float(op_value)
+    elif operator == "$lte":
+        return float(value) <= float(op_value)
+    elif operator == "$ne":
+        return value != op_value
+    else:
+        raise ValueError(f"Unsupported operator: {operator}")

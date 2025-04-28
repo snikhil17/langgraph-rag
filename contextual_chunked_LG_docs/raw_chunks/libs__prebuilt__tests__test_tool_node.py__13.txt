@@ -1,0 +1,6 @@
+"""Tool 1 docstring."""
+def tool1(some_val: int, some_other_val: str) -> str:
+
+    if some_val == 0:
+        raise ValueError("Test error")
+    return f"{some_val} - {some_other_val}"

@@ -1,0 +1,14 @@
+class StreamProtocol:
+    __slots__ = ("modes", "__call__")
+
+    modes: set[StreamMode]
+
+    __call__: Callable[[Self, StreamChunk], None]
+
+    def __init__(
+        self,
+        __call__: Callable[[StreamChunk], None],
+        modes: set[StreamMode],
+    ) -> None:
+        self.__call__ = cast(Callable[[Self, StreamChunk], None], __call__)
+        self.modes = modes

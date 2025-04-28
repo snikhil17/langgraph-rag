@@ -1,0 +1,4 @@
+"""Compile the graph."""
+def compile_graph(graph: StateGraph) -> None:
+
+    graph.compile()

@@ -1,0 +1,12 @@
+"""@entrypoint does not support sync generators."""
+def test_entrypoint_from_sync_generator() -> None:
+
+    previous_return_values = []
+
+    with pytest.raises(NotImplementedError):
+
+        @entrypoint(checkpointer=MemorySaver())
+        def foo(inputs, previous=None) -> Any:
+            previous_return_values.append(previous)
+            yield "a"
+            yield "b"

@@ -1,0 +1,67 @@
+"""Get a synchronous LangGraphClient instance.
+
+Args:
+    url: The URL of the LangGraph API.
+    api_key: The API key. If not provided, it will be read from the environment.
+        Precedence:
+            1. explicit argument
+            2. LANGGRAPH_API_KEY
+            3. LANGSMITH_API_KEY
+            4. LANGCHAIN_API_KEY
+    headers: Optional custom headers
+Returns:
+    SyncLangGraphClient: The top-level synchronous client for accessing AssistantsClient,
+    ThreadsClient, RunsClient, and CronClient.
+
+Example:
+
+    from langgraph_sdk import get_sync_client
+
+    # get top-level synchronous LangGraphClient
+    client = get_sync_client(url="http://localhost:8123")
+
+    # example usage: client.<model>.<method_name>()
+    assistant = client.assistants.get(assistant_id="some_uuid")"""
+def get_sync_client(
+    *,
+    url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    headers: Optional[dict[str, str]] = None,
+) -> SyncLangGraphClient:
+    """Get a synchronous LangGraphClient instance.
+
+    Args:
+        url: The URL of the LangGraph API.
+        api_key: The API key. If not provided, it will be read from the environment.
+            Precedence:
+                1. explicit argument
+                2. LANGGRAPH_API_KEY
+                3. LANGSMITH_API_KEY
+                4. LANGCHAIN_API_KEY
+        headers: Optional custom headers
+    Returns:
+        SyncLangGraphClient: The top-level synchronous client for accessing AssistantsClient,
+        ThreadsClient, RunsClient, and CronClient.
+
+    Example:
+
+        from langgraph_sdk import get_sync_client
+
+        # get top-level synchronous LangGraphClient
+        client = get_sync_client(url="http://localhost:8123")
+
+        # example usage: client.<model>.<method_name>()
+        assistant = client.assistants.get(assistant_id="some_uuid")
+    """
+
+    if url is None:
+        url = "http://localhost:8123"
+
+    transport = httpx.HTTPTransport(retries=5)
+    client = httpx.Client(
+        base_url=url,
+        transport=transport,
+        timeout=httpx.Timeout(connect=5, read=300, write=300, pool=5),
+        headers=get_headers(api_key, headers),
+    )
+    return SyncLangGraphClient(client)

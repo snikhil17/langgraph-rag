@@ -1,0 +1,33 @@
+"""Validates that an auth handler function meets the required signature.
+
+Auth handlers must:
+1. Be async functions
+2. Accept a ctx parameter of type AuthContext
+3. Accept a value parameter for the data being authorized"""
+def _validate_handler(fn: Callable[..., typing.Any]) -> None:
+    """Validates that an auth handler function meets the required signature.
+
+    Auth handlers must:
+    1. Be async functions
+    2. Accept a ctx parameter of type AuthContext
+    3. Accept a value parameter for the data being authorized
+    """
+    if not inspect.iscoroutinefunction(fn):
+        raise ValueError(
+            f"Auth handler '{fn.__name__}' must be an async function. "
+            "Add 'async' before 'def' to make it asynchronous and ensure"
+            " any IO operations are non-blocking."
+        )
+
+    sig = inspect.signature(fn)
+    if "ctx" not in sig.parameters:
+        raise ValueError(
+            f"Auth handler '{fn.__name__}' must have a 'ctx: AuthContext' parameter. "
+            "Update the function signature to include this required parameter."
+        )
+    if "value" not in sig.parameters:
+        raise ValueError(
+            f"Auth handler '{fn.__name__}' must have a 'value' parameter. "
+            " The value contains the mutable data being sent to the endpoint."
+            "Update the function signature to include this required parameter."
+        )

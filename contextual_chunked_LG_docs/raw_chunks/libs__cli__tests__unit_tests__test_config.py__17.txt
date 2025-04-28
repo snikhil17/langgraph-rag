@@ -1,0 +1,33 @@
+def test_config_to_docker_local_deps():
+    graphs = {"agent": "./graphs/agent.py:graph"}
+    actual_docker_stdin, additional_contexts = config_to_docker(
+        PATH_TO_CONFIG,
+        validate_config(
+            {
+                "dependencies": ["./graphs"],
+                "graphs": graphs,
+            }
+        ),
+        "langchain/langgraph-api-custom",
+    )
+    expected_docker_stdin = f"""\
+FROM langchain/langgraph-api-custom:3.11
+# -- Adding non-package dependency graphs --
+ADD ./graphs /deps/__outer_graphs/src
+RUN set -ex && \\
+    for line in '[project]' \\
+                'name = "graphs"' \\
+                'version = "0.1"' \\
+                '[tool.setuptools.package-data]' \\
+                '"*" = ["**/*"]'; do \\
+        echo "$line" >> /deps/__outer_graphs/pyproject.toml; \\
+    done
+# -- End of non-package dependency graphs --
+# -- Installing all local dependencies --
+RUN PYTHONDONTWRITEBYTECODE=1 pip install --no-cache-dir -c /api/constraints.txt -e /deps/*
+# -- End of local dependencies install --
+ENV LANGSERVE_GRAPHS='{{"agent": "/deps/__outer_graphs/src/agent.py:graph"}}'
+{PIP_CLEANUP_LINES}\
+"""
+    assert clean_empty_lines(actual_docker_stdin) == expected_docker_stdin
+    assert additional_contexts == {}

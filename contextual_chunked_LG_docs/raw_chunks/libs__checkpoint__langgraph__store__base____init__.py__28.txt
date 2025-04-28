@@ -1,0 +1,9 @@
+def _ensure_ttl(
+    ttl_config: Optional[TTLConfig],
+    ttl: Union[Optional[float], "NotProvided"] = NOT_PROVIDED,
+) -> Optional[float]:
+    if ttl is NOT_PROVIDED:
+        if ttl_config:
+            return ttl_config.get("default_ttl")
+        return None
+    return ttl

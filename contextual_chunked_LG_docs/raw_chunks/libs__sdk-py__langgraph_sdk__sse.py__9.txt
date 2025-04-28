@@ -1,0 +1,7 @@
+def iter_lines_raw(response: httpx.Response) -> Iterator[BytesLike]:
+    decoder = BytesLineDecoder()
+    for chunk in response.iter_bytes():
+        for line in decoder.decode(chunk):
+            yield line
+    for line in decoder.flush():
+        yield line

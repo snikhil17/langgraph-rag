@@ -1,0 +1,26 @@
+"""Parse arguments from a string."""
+def _parse_llm_compiler_action_args(args: str, tool: Union[str, BaseTool]) -> list[Any]:
+
+    if args == "":
+        return ()
+    if isinstance(tool, str):
+        return ()
+    extracted_args = {}
+    tool_key = None
+    prev_idx = None
+    for key in tool.args.keys():
+        # Split if present
+        if f"{key}=" in args:
+            idx = args.index(f"{key}=")
+            if prev_idx is not None:
+                extracted_args[tool_key] = _ast_parse(
+                    args[prev_idx:idx].strip().rstrip(",")
+                )
+            args = args.split(f"{key}=", 1)[1]
+            tool_key = key
+            prev_idx = 0
+    if prev_idx is not None:
+        extracted_args[tool_key] = _ast_parse(
+            args[prev_idx:].strip().rstrip(",").rstrip(")")
+        )
+    return extracted_args

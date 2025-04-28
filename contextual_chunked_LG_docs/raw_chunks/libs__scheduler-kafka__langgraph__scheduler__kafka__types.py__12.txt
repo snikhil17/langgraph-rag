@@ -1,0 +1,6 @@
+class Consumer(Protocol):
+    def getmany(
+        self, timeout_ms: int, max_records: int
+    ) -> dict[TopicPartition, Sequence[ConsumerRecord]]: ...
+
+    def commit(self) -> None: ...

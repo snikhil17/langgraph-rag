@@ -1,0 +1,16 @@
+"""Base class for authentication context.
+
+Provides the fundamental authentication information needed for
+authorization decisions."""
+class BaseAuthContext:
+    """Base class for authentication context.
+
+    Provides the fundamental authentication information needed for
+    authorization decisions.
+    """
+
+    permissions: Sequence[str]
+    """The permissions granted to the authenticated user."""
+
+    user: BaseUser
+    """The authenticated user."""

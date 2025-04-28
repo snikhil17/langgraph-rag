@@ -1,0 +1,12 @@
+def test_delete_all():
+    left = [
+        HumanMessage(content="Hello", id="1"),
+        AIMessage(content="Hi there!", id="2"),
+    ]
+    right = [
+        RemoveMessage(id="1"),
+        RemoveMessage(id="2"),
+    ]
+    result = add_messages(left, right)
+    expected_result = []
+    assert result == expected_result

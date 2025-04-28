@@ -1,0 +1,33 @@
+def test_pydantic_state_field_validator():
+    from pydantic import BaseModel, field_validator, model_validator
+
+    class State(BaseModel):
+        name: str
+        text: str = ""
+        only_root: int = 13
+
+        @field_validator("name", mode="after")
+        @classmethod
+        def validate_name(cls, value):
+            if value[0].islower():
+                raise ValueError("Name must start with a capital letter")
+            return "Validated " + value
+
+        @model_validator(mode="before")
+        @classmethod
+        def validate_amodel(cls, values: "State"):
+            return values | {"only_root": 392}
+
+    input_state = {"name": "John"}
+
+    def process_node(state: State):
+        assert State.model_validate(input_state) == state
+        return {"text": "Hello, " + state.name + "!"}
+
+    builder = StateGraph(state_schema=State)
+    builder.add_node("process", process_node)
+    builder.add_edge(START, "process")
+    builder.add_edge("process", END)
+    g = builder.compile()
+    res = g.invoke(input_state)
+    assert res["text"] == "Hello, Validated John!"

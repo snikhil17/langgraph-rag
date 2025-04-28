@@ -1,0 +1,47 @@
+def test_simple_multi_edge(snapshot: SnapshotAssertion) -> None:
+    class State(TypedDict):
+        my_key: Annotated[str, operator.add]
+
+    def up(state: State):
+        pass
+
+    def side(state: State):
+        pass
+
+    def other(state: State):
+        return {"my_key": "_more"}
+
+    def down(state: State):
+        pass
+
+    graph = StateGraph(State)
+
+    graph.add_node("up", up)
+    graph.add_node("side", side)
+    graph.add_node("other", other)
+    graph.add_node("down", down)
+
+    graph.set_entry_point("up")
+    graph.add_edge("up", "side")
+    graph.add_edge("up", "other")
+    graph.add_edge(["up", "side"], "down")
+    graph.set_finish_point("down")
+
+    app = graph.compile()
+
+    assert app.get_graph().draw_mermaid(with_styles=False) == snapshot
+    assert app.invoke({"my_key": "my_value"}) == {"my_key": "my_value_more"}
+    assert [*app.stream({"my_key": "my_value"})] in (
+        [
+            {"up": None},
+            {"side": None},
+            {"other": {"my_key": "_more"}},
+            {"down": None},
+        ],
+        [
+            {"up": None},
+            {"other": {"my_key": "_more"}},
+            {"side": None},
+            {"down": None},
+        ],
+    )

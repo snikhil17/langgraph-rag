@@ -1,0 +1,18 @@
+def test_list_namespaces_pagination() -> None:
+    store = InMemoryStore()
+
+    for i in range(20):
+        ns = ("namespace", f"sub_{i:02d}")
+        store.put(namespace=ns, key=f"id_{i:02d}", value={"data": f"value_{i:02d}"})
+
+    result = store.list_namespaces(prefix=("namespace",), limit=5, offset=0)
+    expected = [("namespace", f"sub_{i:02d}") for i in range(5)]
+    assert result == expected
+
+    result = store.list_namespaces(prefix=("namespace",), limit=5, offset=5)
+    expected = [("namespace", f"sub_{i:02d}") for i in range(5, 10)]
+    assert result == expected
+
+    result = store.list_namespaces(prefix=("namespace",), limit=5, offset=15)
+    expected = [("namespace", f"sub_{i:02d}") for i in range(15, 20)]
+    assert result == expected

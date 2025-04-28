@@ -1,0 +1,116 @@
+def _assemble_local_deps(config_path: pathlib.Path, config: Config) -> LocalDeps:
+    config_path = config_path.resolve()
+    # ensure reserved package names are not used
+    reserved = {
+        "src",
+        "langgraph-api",
+        "langgraph_api",
+        "langgraph",
+        "langchain-core",
+        "langchain_core",
+        "pydantic",
+        "orjson",
+        "fastapi",
+        "uvicorn",
+        "psycopg",
+        "httpx",
+        "langsmith",
+    }
+    counter = Counter()
+
+    def check_reserved(name: str, ref: str):
+        if name in reserved:
+            raise ValueError(
+                f"Package name '{name}' used in local dep '{ref}' is reserved. "
+                "Rename the directory."
+            )
+        reserved.add(name)
+
+    pip_reqs = []
+    real_pkgs = {}
+    faux_pkgs = {}
+    working_dir: Optional[str] = None
+    additional_contexts: list[pathlib.Path] = []
+
+    for local_dep in config["dependencies"]:
+        if not local_dep.startswith("."):
+            # If the dependency is not a local path, skip it
+            continue
+
+        # Verify that the local dependency can be resolved
+        # (e.g., this would raise an informative error if a user mistyped a path).
+        resolved = (config_path.parent / local_dep).resolve()
+
+        # validate local dependency
+        if not resolved.exists():
+            raise FileNotFoundError(f"Could not find local dependency: {resolved}")
+        elif not resolved.is_dir():
+            raise NotADirectoryError(
+                f"Local dependency must be a directory: {resolved}"
+            )
+        elif resolved == config_path.parent:
+            pass
+        elif config_path.parent not in resolved.parents:
+            additional_contexts.append(resolved)
+
+        # Check for pyproject.toml or setup.py
+        # If found, treat as a real package, if not treat as a faux package.
+        # For faux packages, we'll also check for presence of requirements.txt.
+        files = os.listdir(resolved)
+        if "pyproject.toml" in files or "setup.py" in files:
+            # real package
+
+            # assign a unique folder name
+            container_name = resolved.name
+            if counter[container_name] > 0:
+                container_name += f"_{counter[container_name]}"
+            counter[container_name] += 1
+            # add to deps
+            real_pkgs[resolved] = (local_dep, container_name)
+            # set working_dir
+            if local_dep == ".":
+                working_dir = f"/deps/{container_name}"
+        else:
+            # We could not find a pyproject.toml or setup.py, so treat as a faux package
+            if any(file == "__init__.py" for file in files):
+                # flat layout
+                if "-" in resolved.name:
+                    raise ValueError(
+                        f"Package name '{resolved.name}' contains a hyphen. "
+                        "Rename the directory to use it as flat-layout package."
+                    )
+                check_reserved(resolved.name, local_dep)
+                container_path = f"/deps/__outer_{resolved.name}/{resolved.name}"
+            else:
+                # src layout
+                container_path = f"/deps/__outer_{resolved.name}/src"
+                for file in files:
+                    rfile = resolved / file
+                    if (
+                        rfile.is_dir()
+                        and file != "__pycache__"
+                        and not file.startswith(".")
+                    ):
+                        try:
+                            for subfile in os.listdir(rfile):
+                                if subfile.endswith(".py"):
+                                    check_reserved(file, local_dep)
+                                    break
+                        except PermissionError:
+                            pass
+            faux_pkgs[resolved] = (local_dep, container_path)
+            if local_dep == ".":
+                working_dir = container_path
+
+            # If the faux package has a requirements.txt, we'll add
+            # the path to the list of requirements to install.
+            if "requirements.txt" in files:
+                rfile = resolved / "requirements.txt"
+                pip_reqs.append(
+                    (
+                        rfile,
+                        f"{container_path}/requirements.txt",
+                    )
+                )
+
+    return LocalDeps(pip_reqs, real_pkgs, faux_pkgs, working_dir, additional_contexts)

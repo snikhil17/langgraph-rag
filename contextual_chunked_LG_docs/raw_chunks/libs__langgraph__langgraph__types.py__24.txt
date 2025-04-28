@@ -1,0 +1,17 @@
+"""!!! version-added "Added in version 0.2.24.""""
+class Interrupt:
+    """
+    !!! version-added "Added in version 0.2.24."
+    """
+
+    value: Any
+    resumable: bool = False
+    ns: Optional[Sequence[str]] = None
+    when: Literal["during"] = dataclasses.field(default="during", repr=False)
+
+    @property
+    def interrupt_id(self) -> str:
+        """Generate a unique ID for the interrupt based on its namespace."""
+        if self.ns is None:
+            return "placeholder-id"
+        return xxh3_128_hexdigest("".join(self.ns).encode())

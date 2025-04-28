@@ -1,0 +1,10 @@
+"""Sentinel singleton."""
+class NotProvided:
+
+
+    def __bool__(self) -> Literal[False]:
+        return False
+
+    @override
+    def __repr__(self) -> str:
+        return "NOT_GIVEN"

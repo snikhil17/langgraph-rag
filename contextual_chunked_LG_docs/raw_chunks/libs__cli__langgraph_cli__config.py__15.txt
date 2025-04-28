@@ -1,0 +1,15 @@
+"""Configuration for the built-in checkpointer, which handles checkpointing of state.
+
+If omitted, no checkpointer is set up (the object store will still be present, however)."""
+class CheckpointerConfig(TypedDict, total=False):
+    """Configuration for the built-in checkpointer, which handles checkpointing of state.
+
+    If omitted, no checkpointer is set up (the object store will still be present, however).
+    """
+
+    ttl: Optional[ThreadTTLConfig]
+    """Optional. Defines the TTL (time-to-live) behavior configuration.
+
+    If provided, the checkpointer will apply TTL settings according to the configuration.
+    If omitted, no TTL behavior is configured.
+    """

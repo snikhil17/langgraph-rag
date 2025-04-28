@@ -1,0 +1,33 @@
+def test_batch_list_namespaces_ops(store: PostgresStore) -> None:
+    # Setup test data with various namespaces
+    test_data = [
+        (("test", "documents", "public"), "doc1", {"content": "public doc"}),
+        (("test", "documents", "private"), "doc2", {"content": "private doc"}),
+        (("test", "images", "public"), "img1", {"content": "public image"}),
+        (("prod", "documents", "public"), "doc3", {"content": "prod doc"}),
+    ]
+    for namespace, key, value in test_data:
+        store.put(namespace, key, value)
+
+    ops = [
+        ListNamespacesOp(match_conditions=None, max_depth=None, limit=10, offset=0),
+        ListNamespacesOp(match_conditions=None, max_depth=2, limit=10, offset=0),
+        ListNamespacesOp(
+            match_conditions=[MatchCondition("suffix", "public")],
+            max_depth=None,
+            limit=10,
+            offset=0,
+        ),
+    ]
+
+    results = store.batch(ops)
+    assert len(results) == 3
+
+    # First operation should list all namespaces
+    assert len(results[0]) == len(test_data)
+
+    # Second operation should only return namespaces up to depth 2
+    assert all(len(ns) <= 2 for ns in results[1])
+
+    # Third operation should only return namespaces ending with "public"
+    assert all(ns[-1] == "public" for ns in results[2])

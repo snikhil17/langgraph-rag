@@ -1,0 +1,22 @@
+"""Operation to list and filter namespaces in the store."""
+class StoreListNamespaces(typing.TypedDict):
+
+
+    namespace: typing.Optional[tuple[str, ...]]
+    """Prefix filter namespaces."""
+
+    suffix: typing.Optional[tuple[str, ...]]
+    """Optional conditions for filtering namespaces."""
+
+    max_depth: typing.Optional[int]
+    """Maximum depth of namespace hierarchy to return.
+
+    Note:
+        Namespaces deeper than this level will be truncated.
+    """
+
+    limit: int
+    """Maximum number of namespaces to return."""
+
+    offset: int
+    """Number of namespaces to skip for pagination."""

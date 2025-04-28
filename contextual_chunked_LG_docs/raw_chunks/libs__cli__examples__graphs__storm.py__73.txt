@@ -1,0 +1,8 @@
+class ResearchState(TypedDict):
+    topic: str
+    outline: Outline
+    editors: List[Editor]
+    interview_results: List[InterviewState]
+    # The final sections output
+    sections: List[WikiSection]
+    article: str

@@ -1,0 +1,14 @@
+def build(
+    config: pathlib.Path,
+    docker_build_args: Sequence[str],
+    base_image: Optional[str],
+    pull: bool,
+    tag: str,
+):
+    with Runner() as runner, Progress(message="Pulling...") as set:
+        if shutil.which("docker") is None:
+            raise click.UsageError("Docker not installed") from None
+        config_json = langgraph_cli.config.validate_config_file(config)
+        _build(
+            runner, set, config, config_json, base_image, pull, tag, docker_build_args
+        )

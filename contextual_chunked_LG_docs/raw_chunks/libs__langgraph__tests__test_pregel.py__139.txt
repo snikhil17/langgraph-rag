@@ -1,0 +1,32 @@
+"""Test that parallel nodes execute concurrently."""
+def test_parallel_node_execution():
+
+
+    class State(TypedDict):
+        results: Annotated[list[str], operator.add]
+
+    def slow_node(state: State):
+        time.sleep(1)
+        return {"results": ["slow"]}
+
+    def fast_node(state: State):
+        time.sleep(2)
+        return {"results": ["fast"]}
+
+    builder = StateGraph(State)
+    builder.add_node("slow", slow_node)
+    builder.add_node("fast", fast_node)
+    builder.add_edge(START, "slow")
+    builder.add_edge(START, "fast")
+
+    graph = builder.compile()
+
+    start = time.perf_counter()
+    result = graph.invoke({"results": []})
+    duration = time.perf_counter() - start
+
+    # Fast node result should be available first
+    assert "fast" in result["results"][0]
+
+    # Total duration should be less than sum of both nodes
+    assert duration < 3.0

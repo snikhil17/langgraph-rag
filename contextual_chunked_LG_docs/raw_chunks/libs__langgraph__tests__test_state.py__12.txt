@@ -1,0 +1,3 @@
+class State(BaseModel):
+    foo: str
+    bar: int

@@ -1,0 +1,20 @@
+"""Check if an annotation is marked as ReadOnly.
+
+Returns:
+    - True if is read only
+    - False if not read only"""
+def _is_readonly_type(type_: Any) -> bool:
+    """Check if an annotation is marked as ReadOnly.
+
+    Returns:
+        - True if is read only
+        - False if not read only
+    """
+
+    # See: https://typing.readthedocs.io/en/latest/spec/typeddict.html#typing-readonly-type-qualifier
+    origin = get_origin(type_)
+    if origin is Annotated:
+        return _is_readonly_type(type_.__args__[0])
+    if origin is ReadOnly:
+        return True
+    return False

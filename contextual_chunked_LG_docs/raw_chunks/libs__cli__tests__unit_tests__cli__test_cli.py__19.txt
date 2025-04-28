@@ -1,0 +1,42 @@
+"""Test the 'dockerfile' command with Docker Compose configuration."""
+def test_dockerfile_command_with_docker_compose() -> None:
+
+    runner = CliRunner()
+    config_content = {
+        "dependencies": ["./my_agent"],
+        "graphs": {"agent": "./my_agent/agent.py:graph"},
+        "env": ".env",
+    }
+    with temporary_config_folder(config_content) as temp_dir:
+        save_path = temp_dir / "Dockerfile"
+        # Add agent.py file
+        agent_path = temp_dir / "my_agent" / "agent.py"
+        agent_path.parent.mkdir(parents=True, exist_ok=True)
+        agent_path.touch()
+
+        result = runner.invoke(
+            cli,
+            [
+                "dockerfile",
+                str(save_path),
+                "--config",
+                str(temp_dir / "config.json"),
+                "--add-docker-compose",
+            ],
+        )
+
+        # Assert command was successful
+        assert result.exit_code == 0
+        assert "✅ Created: Dockerfile" in result.output
+        assert "✅ Created: .dockerignore" in result.output
+        assert "✅ Created: docker-compose.yml" in result.output
+        assert (
+            "✅ Created: .env" in result.output or "➖ Skipped: .env" in result.output
+        )
+        assert "🎉 Files generated successfully" in result.output
+
+        # Check if Dockerfile, .dockerignore, docker-compose.yml, and .env were created
+        assert save_path.exists()
+        assert (temp_dir / ".dockerignore").exists()
+        assert (temp_dir / "docker-compose.yml").exists()
+        assert (temp_dir / ".env").exists() or "➖ Skipped: .env" in result.output

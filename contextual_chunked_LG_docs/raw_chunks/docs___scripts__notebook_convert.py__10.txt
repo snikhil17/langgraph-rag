@@ -1,0 +1,50 @@
+"""This visitor sets self.has_print to True if it encounters a call
+to a print within the global scope.
+
+This should catch calls to print(), print_stream(), etc. (Prefixed with "print").
+
+May have some false positives, but it's not meant to be perfect.
+
+Temporary code for notebook conversion."""
+class PrintCallVisitor(ast.NodeVisitor):
+    """
+    This visitor sets self.has_print to True if it encounters a call
+    to a print within the global scope.
+
+    This should catch calls to print(), print_stream(), etc. (Prefixed with "print").
+
+    May have some false positives, but it's not meant to be perfect.
+
+    Temporary code for notebook conversion.
+    """
+
+    def __init__(self):
+        self.has_print = False
+        self.scope_level = 0  # counter to track whether we're inside a def/lambda
+
+    def visit_FunctionDef(self, node):
+        self.scope_level += 1
+        self.generic_visit(node)
+        self.scope_level -= 1
+
+    def visit_AsyncFunctionDef(self, node):
+        self.scope_level += 1
+        self.generic_visit(node)
+        self.scope_level -= 1
+
+    def visit_Lambda(self, node):
+        self.scope_level += 1
+        self.generic_visit(node)
+        self.scope_level -= 1
+
+    def visit_ClassDef(self, node):
+        self.scope_level += 1
+        self.generic_visit(node)
+        self.scope_level -= 1
+
+    def visit_Call(self, node):
+        # Only consider calls when not inside a function definition.
+        if self.scope_level == 0:
+            if isinstance(node.func, ast.Name) and node.func.id.startswith("print"):
+                self.has_print = True
+        self.generic_visit(node)

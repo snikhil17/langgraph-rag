@@ -1,0 +1,2 @@
+class DefaultAsyncConsumer(aiokafka.AIOKafkaConsumer):
+    pass

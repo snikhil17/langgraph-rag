@@ -1,0 +1,4 @@
+class Topics(NamedTuple):
+    orchestrator: str
+    executor: str
+    error: str

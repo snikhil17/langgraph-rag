@@ -1,0 +1,36 @@
+"""Payload for searching assistants.
+
+???+ example "Examples"
+    ```python
+    search_params = {
+        "graph_id": "graph123",
+        "metadata": {"owner": "user123"},
+        "limit": 10,
+        "offset": 0
+    }
+    ```"""
+class AssistantsSearch(typing.TypedDict):
+    """Payload for searching assistants.
+
+    ???+ example "Examples"
+        ```python
+        search_params = {
+            "graph_id": "graph123",
+            "metadata": {"owner": "user123"},
+            "limit": 10,
+            "offset": 0
+        }
+        ```
+    """
+
+    graph_id: typing.Optional[str]
+    """typing.Optional graph ID to filter by."""
+
+    metadata: MetadataInput
+    """typing.Optional metadata to filter by."""
+
+    limit: int
+    """Maximum number of results to return."""
+
+    offset: int
+    """Offset for pagination."""

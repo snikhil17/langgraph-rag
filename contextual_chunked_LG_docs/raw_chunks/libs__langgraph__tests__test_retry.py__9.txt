@@ -1,0 +1,16 @@
+"""Test retry with a callable predicate."""
+def test_should_retry_on_callable():
+
+
+    # Only retry on ValueError with message containing 'retry'
+    def should_retry(exc: Exception) -> bool:
+        return isinstance(exc, ValueError) and "retry" in str(exc)
+
+    policy = RetryPolicy(retry_on=should_retry)
+
+    # Should retry when predicate returns True
+    assert _should_retry_on(policy, ValueError("please retry this")) is True
+
+    # Should not retry when predicate returns False
+    assert _should_retry_on(policy, ValueError("other error")) is False
+    assert _should_retry_on(policy, TypeError("please retry this")) is False

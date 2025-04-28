@@ -1,0 +1,16 @@
+def test_mixed_operations():
+    left = [
+        HumanMessage(content="Hello", id="1"),
+        AIMessage(content="Hi there!", id="2"),
+    ]
+    right = [
+        HumanMessage(content="Updated hello", id="1"),
+        RemoveMessage(id="2"),
+        SystemMessage(content="New message", id="3"),
+    ]
+    result = add_messages(left, right)
+    expected_result = [
+        HumanMessage(content="Updated hello", id="1"),
+        SystemMessage(content="New message", id="3"),
+    ]
+    assert result == expected_result

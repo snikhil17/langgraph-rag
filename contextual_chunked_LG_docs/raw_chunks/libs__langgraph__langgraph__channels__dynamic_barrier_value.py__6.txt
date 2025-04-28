@@ -1,0 +1,2 @@
+class WaitForNames(NamedTuple):
+    names: Set[Any]

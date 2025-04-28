@@ -1,0 +1,21 @@
+"""Produce "task" events for stream_mode=debug."""
+def map_debug_tasks(
+    step: int, tasks: Iterable[PregelExecutableTask]
+) -> Iterator[DebugOutputTask]:
+
+    ts = datetime.now(timezone.utc).isoformat()
+    for task in tasks:
+        if task.config is not None and TAG_HIDDEN in task.config.get("tags", []):
+            continue
+
+        yield {
+            "type": "task",
+            "timestamp": ts,
+            "step": step,
+            "payload": {
+                "id": task.id,
+                "name": task.name,
+                "input": task.input,
+                "triggers": task.triggers,
+            },
+        }

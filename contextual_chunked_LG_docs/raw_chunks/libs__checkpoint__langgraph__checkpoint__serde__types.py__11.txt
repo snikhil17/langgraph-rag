@@ -1,0 +1,10 @@
+class SendProtocol(Protocol):
+    # Mirrors langgraph.constants.Send
+    node: str
+    arg: Any
+
+    def __hash__(self) -> int: ...
+
+    def __repr__(self) -> str: ...
+
+    def __eq__(self, value: object) -> bool: ...

@@ -1,0 +1,4 @@
+class Queries(BaseModel):
+    queries: List[str] = Field(
+        description="Comprehensive list of search engine queries to answer the user's questions.",
+    )

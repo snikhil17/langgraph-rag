@@ -1,0 +1,5 @@
+"""The state of the agent with a structured response."""
+class AgentStateWithStructuredResponse(AgentState):
+
+
+    structured_response: StructuredResponse

@@ -1,0 +1,49 @@
+"""Dedupe operations while preserving order for results.
+
+Args:
+    values: List of operations to dedupe
+
+Returns:
+    Tuple of (listen indices, deduped operations)
+    where listen indices map deduped operation results back to original positions"""
+def _dedupe_ops(values: list[Op]) -> tuple[Optional[list[int]], list[Op]]:
+    """Dedupe operations while preserving order for results.
+
+    Args:
+        values: List of operations to dedupe
+
+    Returns:
+        Tuple of (listen indices, deduped operations)
+        where listen indices map deduped operation results back to original positions
+    """
+    if len(values) <= 1:
+        return None, list(values)
+
+    dedupped: list[Op] = []
+    listen: list[int] = []
+    puts: dict[tuple[tuple[str, ...], str], int] = {}
+
+    for op in values:
+        if isinstance(op, (GetOp, SearchOp, ListNamespacesOp)):
+            try:
+                listen.append(dedupped.index(op))
+            except ValueError:
+                listen.append(len(dedupped))
+                dedupped.append(op)
+        elif isinstance(op, PutOp):
+            putkey = (op.namespace, op.key)
+            if putkey in puts:
+                # Overwrite previous put
+                ix = puts[putkey]
+                dedupped[ix] = op
+                listen.append(ix)
+            else:
+                puts[putkey] = len(dedupped)
+                listen.append(len(dedupped))
+                dedupped.append(op)
+
+        else:  # Any new ops will be treated regularly
+            listen.append(len(dedupped))
+            dedupped.append(op)
+
+    return listen, dedupped

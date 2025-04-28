@@ -1,0 +1,3 @@
+def test_warns_invalid_schema(schema: Any):
+    with pytest.warns(UserWarning):
+        _warn_invalid_state_schema(schema)

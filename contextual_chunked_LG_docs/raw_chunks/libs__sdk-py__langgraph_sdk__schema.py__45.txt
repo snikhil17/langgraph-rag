@@ -1,0 +1,17 @@
+"""Represents a message to be sent to a specific node in the graph.
+
+This type is used to explicitly send messages to nodes in the graph, typically
+used within Command objects to control graph execution flow."""
+class Send(TypedDict):
+    """Represents a message to be sent to a specific node in the graph.
+
+    This type is used to explicitly send messages to nodes in the graph, typically
+    used within Command objects to control graph execution flow.
+    """
+
+    node: str
+    """The name of the target node to send the message to."""
+    input: Optional[dict[str, Any]]
+    """Optional dictionary containing the input data to be passed to the node.
+
+    If None, the node will be called with no input."""

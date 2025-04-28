@@ -1,0 +1,35 @@
+"""Generate the schema and write it to a file."""
+def main():
+
+    schema = generate_schema()
+
+    # Add versioning to the schema
+    import importlib.metadata
+
+    try:
+        version = importlib.metadata.version("langgraph_cli").split(".")
+        schema_version = f"v{version[0]}"
+    except importlib.metadata.PackageNotFoundError:
+        schema_version = "v1"
+
+    # Add version to schema
+    schema["version"] = schema_version
+
+    config_dir = Path(__file__).parent / "schemas"
+
+    # Create versioned schema file
+    versioned_path = config_dir / f"schema.{schema_version}.json"
+    with open(versioned_path, "w") as f:
+        json.dump(schema, f, indent=2)
+
+    # Also create a latest version
+    latest_path = config_dir / "schema.json"
+    with open(latest_path, "w") as f:
+        json.dump(schema, f, indent=2)
+
+    print(f"Schema written to {versioned_path} and {latest_path}")
+    print(
+        f"You can now add '$schema: https://raw.githubusercontent.com/langchain-ai/langgraph/refs/heads/main/libs/cli/schemas/schema.json'"
+        f" or '$schema: https://raw.githubusercontent.com/langchain-ai/langgraph/refs/heads/main/libs/cli/schemas/schema.{schema_version}.json'"
+        " to your langgraph.json files"
+    )

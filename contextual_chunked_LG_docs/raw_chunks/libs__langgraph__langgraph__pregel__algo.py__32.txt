@@ -1,0 +1,42 @@
+"""Function injected under CONFIG_KEY_READ in task config, to read current state.
+Used by conditional edges to read a copy of the state with reflecting the writes
+from that node only."""
+def local_read(
+    channels: Mapping[str, BaseChannel],
+    managed: ManagedValueMapping,
+    task: WritesProtocol,
+    select: Union[list[str], str],
+    fresh: bool = False,
+) -> Union[dict[str, Any], Any]:
+    """Function injected under CONFIG_KEY_READ in task config, to read current state.
+    Used by conditional edges to read a copy of the state with reflecting the writes
+    from that node only."""
+    updated: dict[str, list[Any]] = defaultdict(list)
+    if isinstance(select, str):
+        managed_keys = []
+        for c, v in task.writes:
+            if c == select:
+                updated[c].append(v)
+    else:
+        managed_keys = [k for k in select if k in managed]
+        select = [k for k in select if k not in managed]
+        for c, v in task.writes:
+            if c in select:
+                updated[c].append(v)
+    if fresh and updated:
+        # apply writes
+        local_channels: dict[str, BaseChannel] = {}
+        for k in channels:
+            if k in updated:
+                cc = channels[k].copy()
+                cc.update(updated[k])
+            else:
+                cc = channels[k]
+            local_channels[k] = cc
+        # read fresh values
+        values = read_channels(local_channels, select)
+    else:
+        values = read_channels(channels, select)
+    if managed_keys:
+        values.update({k: managed[k]() for k in managed_keys})
+    return values

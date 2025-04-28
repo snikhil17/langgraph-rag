@@ -1,0 +1,14 @@
+def test_binop() -> None:
+    channel = BinaryOperatorAggregate(int, operator.add).from_checkpoint(MISSING)
+    assert channel.ValueType is int
+    assert channel.UpdateType is int
+
+    assert channel.get() == 0
+
+    channel.update([1, 2, 3])
+    assert channel.get() == 6
+    channel.update([4])
+    assert channel.get() == 10
+    checkpoint = channel.checkpoint()
+    channel = BinaryOperatorAggregate(int, operator.add).from_checkpoint(checkpoint)
+    assert channel.get() == 10

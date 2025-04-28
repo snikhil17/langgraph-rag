@@ -1,0 +1,16 @@
+"""Represents the state of a simulation.
+
+Attributes:
+    messages (List[AnyMessage]): A list of messages in the simulation.
+    inputs (Optional[dict[str, Any]]): Optional inputs for the simulation."""
+class SimulationState(TypedDict):
+    """
+    Represents the state of a simulation.
+
+    Attributes:
+        messages (List[AnyMessage]): A list of messages in the simulation.
+        inputs (Optional[dict[str, Any]]): Optional inputs for the simulation.
+    """
+
+    messages: Annotated[List[AnyMessage], add_messages]
+    inputs: Optional[dict[str, Any]]

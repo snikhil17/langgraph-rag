@@ -1,0 +1,47 @@
+"""Prepare input for a PULL task, based on the process's channels and triggers."""
+def _proc_input(
+    proc: PregelNode,
+    managed: ManagedValueMapping,
+    channels: Mapping[str, BaseChannel],
+    *,
+    for_execution: bool,
+    input_cache: Optional[dict[INPUT_CACHE_KEY_TYPE, Any]],
+) -> Any:
+
+    # if in cache return shallow copy
+    if input_cache is not None and proc.input_cache_key in input_cache:
+        return copy(input_cache[proc.input_cache_key])
+    # If all trigger channels subscribed by this process are not empty
+    # then invoke the process with the values of all non-empty channels
+    if isinstance(proc.channels, dict):
+        val: dict[str, Any] = {}
+        for k, chan in proc.channels.items():
+            if chan in channels:
+                if channels[chan].is_available():
+                    val[k] = channels[chan].get()
+            else:
+                val[k] = managed[k]()
+    elif isinstance(proc.channels, list):
+        for chan in proc.channels:
+            if chan in channels:
+                if channels[chan].is_available():
+                    val = channels[chan].get()
+                    break
+            else:
+                val[k] = managed[k]()
+        else:
+            return MISSING
+    else:
+        raise RuntimeError(
+            "Invalid channels type, expected list or dict, got {proc.channels}"
+        )
+
+    # If the process has a mapper, apply it to the value
+    if for_execution and proc.mapper is not None:
+        val = proc.mapper(val)
+
+    # Cache the input value
+    if input_cache is not None:
+        input_cache[proc.input_cache_key] = val
+
+    return val

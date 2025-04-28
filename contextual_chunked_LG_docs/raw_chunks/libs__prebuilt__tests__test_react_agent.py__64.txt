@@ -1,0 +1,78 @@
+def test_tool_node_node_interrupt(
+    request: pytest.FixtureRequest, checkpointer_name: str, version: str
+) -> None:
+    checkpointer: BaseCheckpointSaver = request.getfixturevalue(
+        "checkpointer_" + checkpointer_name
+    )
+
+    def tool_normal(some_val: int) -> str:
+        """Tool docstring."""
+        return "normal"
+
+    def tool_interrupt(some_val: int) -> str:
+        """Tool docstring."""
+        foo = interrupt("provide value for foo")
+        return foo
+
+    # test inside react agent
+    model = FakeToolCallingModel(
+        tool_calls=[
+            [
+                ToolCall(name="tool_interrupt", args={"some_val": 0}, id="1"),
+                ToolCall(name="tool_normal", args={"some_val": 1}, id="2"),
+            ],
+            [],
+        ]
+    )
+    config = {"configurable": {"thread_id": "1"}}
+    agent = create_react_agent(
+        model,
+        [tool_interrupt, tool_normal],
+        checkpointer=checkpointer,
+        version=version,
+    )
+    result = agent.invoke({"messages": [HumanMessage("hi?")]}, config)
+    expected_messages = [
+        _AnyIdHumanMessage(content="hi?"),
+        AIMessage(
+            content="hi?",
+            id="0",
+            tool_calls=[
+                {
+                    "name": "tool_interrupt",
+                    "args": {"some_val": 0},
+                    "id": "1",
+                    "type": "tool_call",
+                },
+                {
+                    "name": "tool_normal",
+                    "args": {"some_val": 1},
+                    "id": "2",
+                    "type": "tool_call",
+                },
+            ],
+        ),
+        _AnyIdToolMessage(content="normal", name="tool_normal", tool_call_id="2"),
+    ]
+    if version == "v1":
+        # Interrupt blocks second tool result
+        assert result["messages"] == expected_messages[:-1]
+    elif version == "v2":
+        assert result["messages"] == expected_messages
+
+    # TODO: figure out why this is not working w/ shallow postgres checkpointer
+    if "shallow" in checkpointer_name:
+        return
+
+    state = agent.get_state(config)
+    assert state.next == ("tools",)
+    task = state.tasks[0]
+    assert task.name == "tools"
+    assert task.interrupts == (
+        Interrupt(
+            value="provide value for foo",
+            when="during",
+            resumable=True,
+            ns=[AnyStr("tools:")],
+        ),
+    )

@@ -1,0 +1,3 @@
+def single(iter: Iterator[T]) -> Optional[T]:
+    for item in iter:
+        return item

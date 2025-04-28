@@ -1,0 +1,25 @@
+"""Semaphore subclass with a wait() method."""
+class Semaphore(threading.Semaphore):
+
+
+    def wait(self, blocking: bool = True, timeout: Optional[float] = None):
+        """Block until the semaphore can be acquired, but don't acquire it."""
+        if not blocking and timeout is not None:
+            raise ValueError("can't specify timeout for non-blocking acquire")
+        rc = False
+        endtime = None
+        with self._cond:
+            while self._value == 0:
+                if not blocking:
+                    break
+                if timeout is not None:
+                    if endtime is None:
+                        endtime = monotonic() + timeout
+                    else:
+                        timeout = endtime - monotonic()
+                        if timeout <= 0:
+                            break
+                self._cond.wait(timeout)
+            else:
+                rc = True
+        return rc

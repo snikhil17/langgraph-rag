@@ -1,0 +1,23 @@
+"""Configuration for retrying nodes.
+
+!!! version-added "Added in version 0.2.24.""""
+class RetryPolicy(NamedTuple):
+    """Configuration for retrying nodes.
+
+    !!! version-added "Added in version 0.2.24."
+    """
+
+    initial_interval: float = 0.5
+    """Amount of time that must elapse before the first retry occurs. In seconds."""
+    backoff_factor: float = 2.0
+    """Multiplier by which the interval increases after each retry."""
+    max_interval: float = 128.0
+    """Maximum amount of time that may elapse between retries. In seconds."""
+    max_attempts: int = 3
+    """Maximum number of attempts to make before giving up, including the first."""
+    jitter: bool = True
+    """Whether to add random jitter to the interval between retries."""
+    retry_on: Union[
+        type[Exception], Sequence[type[Exception]], Callable[[Exception], bool]
+    ] = default_retry_on
+    """List of exception classes that should trigger a retry, or a callable that returns True for exceptions that should trigger a retry."""

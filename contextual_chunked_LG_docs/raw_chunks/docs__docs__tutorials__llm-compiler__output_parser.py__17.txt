@@ -1,0 +1,6 @@
+class Task(TypedDict):
+    idx: int
+    tool: BaseTool
+    args: list
+    dependencies: Dict[str, list]
+    thought: Optional[str]

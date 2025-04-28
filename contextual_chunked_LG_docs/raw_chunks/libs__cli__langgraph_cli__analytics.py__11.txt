@@ -1,0 +1,7 @@
+class LogData(TypedDict):
+    os: str
+    os_version: str
+    python_version: str
+    cli_version: str
+    cli_command: str
+    params: dict[str, Any]

@@ -1,0 +1,2 @@
+class CustomStatePydantic(AgentStatePydantic):
+    user_name: Optional[str] = None

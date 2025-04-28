@@ -1,0 +1,15 @@
+"""Parse the source code to determine if it uses the input() function."""
+def _uses_input(source: str) -> bool:
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        # If there's a syntax error, assume input() might be present to be safe.
+        return False
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            # Check if the function called is named 'input'
+            if isinstance(node.func, ast.Name) and node.func.id == "input":
+                return True
+    return False

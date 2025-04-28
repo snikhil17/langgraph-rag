@@ -1,0 +1,19 @@
+def test_batch_get_ops(store: PostgresStore) -> None:
+    # Setup test data
+    store.put(("test",), "key1", {"data": "value1"})
+    store.put(("test",), "key2", {"data": "value2"})
+
+    ops = [
+        GetOp(namespace=("test",), key="key1"),
+        GetOp(namespace=("test",), key="key2"),
+        GetOp(namespace=("test",), key="key3"),  # Non-existent key
+    ]
+
+    results = store.batch(ops)
+
+    assert len(results) == 3
+    assert results[0] is not None
+    assert results[1] is not None
+    assert results[2] is None
+    assert results[0].key == "key1"
+    assert results[1].key == "key2"

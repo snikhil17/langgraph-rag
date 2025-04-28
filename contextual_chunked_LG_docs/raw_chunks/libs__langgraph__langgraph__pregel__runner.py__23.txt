@@ -1,0 +1,41 @@
+"""Cancel remaining tasks if any failed, re-raise exception if panic is True."""
+def _panic_or_proceed(
+    futs: Union[set[concurrent.futures.Future], set[asyncio.Future]],
+    *,
+    timeout_exc_cls: type[Exception] = TimeoutError,
+    panic: bool = True,
+) -> None:
+
+    done: set[Union[concurrent.futures.Future[Any], asyncio.Future[Any]]] = set()
+    inflight: set[Union[concurrent.futures.Future[Any], asyncio.Future[Any]]] = set()
+    for fut in futs:
+        if fut.cancelled():
+            continue
+        elif fut.done():
+            done.add(fut)
+        else:
+            inflight.add(fut)
+    interrupts: list[GraphInterrupt] = []
+    while done:
+        # if any task failed
+        if exc := _exception(done.pop()):
+            # cancel all pending tasks
+            while inflight:
+                inflight.pop().cancel()
+            # raise the exception
+            if panic:
+                if isinstance(exc, GraphInterrupt):
+                    # collect interrupts
+                    interrupts.append(exc)
+                else:
+                    raise exc
+    # raise combined interrupts
+    if interrupts:
+        raise GraphInterrupt(tuple(i for exc in interrupts for i in exc.args[0]))
+    if inflight:
+        # if we got here means we timed out
+        while inflight:
+            # cancel all pending tasks
+            inflight.pop().cancel()
+        # raise timeout error
+        raise timeout_exc_cls("Timed out")

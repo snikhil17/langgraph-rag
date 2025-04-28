@@ -1,0 +1,5 @@
+def _ast_parse(arg: str) -> Any:
+    try:
+        return ast.literal_eval(arg)
+    except:  # noqa
+        return arg

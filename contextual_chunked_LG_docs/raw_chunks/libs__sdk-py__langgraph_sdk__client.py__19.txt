@@ -1,0 +1,26 @@
+"""Top-level client for LangGraph API.
+
+Attributes:
+    assistants: Manages versioned configuration for your graphs.
+    threads: Handles (potentially) multi-turn interactions, such as conversational threads.
+    runs: Controls individual invocations of the graph.
+    crons: Manages scheduled operations.
+    store: Interfaces with persistent, shared data storage."""
+class LangGraphClient:
+    """Top-level client for LangGraph API.
+
+    Attributes:
+        assistants: Manages versioned configuration for your graphs.
+        threads: Handles (potentially) multi-turn interactions, such as conversational threads.
+        runs: Controls individual invocations of the graph.
+        crons: Manages scheduled operations.
+        store: Interfaces with persistent, shared data storage.
+    """
+
+    def __init__(self, client: httpx.AsyncClient) -> None:
+        self.http = HttpClient(client)
+        self.assistants = AssistantsClient(self.http)
+        self.threads = ThreadsClient(self.http)
+        self.runs = RunsClient(self.http)
+        self.crons = CronClient(self.http)
+        self.store = StoreClient(self.http)

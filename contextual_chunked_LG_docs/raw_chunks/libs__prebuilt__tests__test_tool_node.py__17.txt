@@ -1,0 +1,4 @@
+"""Tool 5 docstring."""
+def tool5(some_val: int):
+
+    raise ToolException("Test error")

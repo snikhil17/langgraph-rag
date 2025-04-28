@@ -1,0 +1,21 @@
+"""Payload for reading a cron job.
+
+???+ example "Examples"
+    ```python
+    read_params = {
+        "cron_id": UUID("123e4567-e89b-12d3-a456-426614174000")
+    }
+    ```"""
+class CronsRead(typing.TypedDict):
+    """Payload for reading a cron job.
+
+    ???+ example "Examples"
+        ```python
+        read_params = {
+            "cron_id": UUID("123e4567-e89b-12d3-a456-426614174000")
+        }
+        ```
+    """
+
+    cron_id: UUID
+    """Unique identifier for the cron job."""

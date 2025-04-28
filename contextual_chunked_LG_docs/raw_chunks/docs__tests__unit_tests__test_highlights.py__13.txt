@@ -1,0 +1,6 @@
+"""Test that code blocks are highlighted correctly."""
+def test_highlight_code_blocks() -> None:
+
+    assert _highlight_code_blocks(INPUT_HIGHLIGHT_1) == EXPECTED_HIGHLIGHT_1
+    assert _highlight_code_blocks(INPUT_HIGHLIGHT_2) == EXPECTED_HIGHLIGHT_2
+    assert _highlight_code_blocks(INPUT_HIGHLIGHT_3) == EXPECTED_HIGHLIGHT_3

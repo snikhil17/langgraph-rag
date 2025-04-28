@@ -1,0 +1,43 @@
+def test_is_required():
+    class MyBaseTypedDict(TypedDict):
+        val_1: Required[Optional[str]]
+        val_2: Required[str]
+        val_3: NotRequired[str]
+        val_4: NotRequired[Optional[str]]
+        val_5: Annotated[NotRequired[int], "foo"]
+        val_6: NotRequired[Annotated[int, "foo"]]
+        val_7: Annotated[Required[int], "foo"]
+        val_8: Required[Annotated[int, "foo"]]
+        val_9: Optional[str]
+        val_10: str
+
+    annos = MyBaseTypedDict.__annotations__
+    assert get_field_default("val_1", annos["val_1"], MyBaseTypedDict) == ...
+    assert get_field_default("val_2", annos["val_2"], MyBaseTypedDict) == ...
+    assert get_field_default("val_3", annos["val_3"], MyBaseTypedDict) is None
+    assert get_field_default("val_4", annos["val_4"], MyBaseTypedDict) is None
+    # See https://peps.python.org/pep-0655/#interaction-with-annotated
+    assert get_field_default("val_5", annos["val_5"], MyBaseTypedDict) is None
+    assert get_field_default("val_6", annos["val_6"], MyBaseTypedDict) is None
+    assert get_field_default("val_7", annos["val_7"], MyBaseTypedDict) == ...
+    assert get_field_default("val_8", annos["val_8"], MyBaseTypedDict) == ...
+    assert get_field_default("val_9", annos["val_9"], MyBaseTypedDict) is None
+    assert get_field_default("val_10", annos["val_10"], MyBaseTypedDict) == ...
+
+    class MyChildDict(MyBaseTypedDict):
+        val_11: int
+        val_11b: Optional[int]
+        val_11c: Union[int, None, str]
+
+    class MyGrandChildDict(MyChildDict, total=False):
+        val_12: int
+        val_13: Required[str]
+
+    cannos = MyChildDict.__annotations__
+    gcannos = MyGrandChildDict.__annotations__
+    assert get_field_default("val_11", cannos["val_11"], MyChildDict) == ...
+    assert get_field_default("val_11b", cannos["val_11b"], MyChildDict) is None
+    assert get_field_default("val_11c", cannos["val_11c"], MyChildDict) is None
+    assert get_field_default("val_12", gcannos["val_12"], MyGrandChildDict) is None
+    assert get_field_default("val_9", gcannos["val_9"], MyGrandChildDict) is None
+    assert get_field_default("val_13", gcannos["val_13"], MyGrandChildDict) == ...

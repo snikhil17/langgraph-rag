@@ -1,0 +1,9 @@
+"""Test store initialization with embedding config."""
+def test_vector_store_initialization(
+    vector_store: PostgresStore, fake_embeddings: CharacterEmbeddings
+) -> None:
+
+    # Store should be initialized with embedding config
+    assert vector_store.index_config is not None
+    assert vector_store.index_config["dims"] == fake_embeddings.dims
+    assert vector_store.index_config["embed"] == fake_embeddings

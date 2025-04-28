@@ -1,0 +1,6 @@
+def flatten(values: Sequence[Union[Value, list[Value]]]) -> Iterator[Value]:
+    for value in values:
+        if isinstance(value, list):
+            yield from value
+        else:
+            yield value

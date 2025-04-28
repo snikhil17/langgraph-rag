@@ -1,0 +1,29 @@
+def test_batch_search_ops(store: PostgresStore) -> None:
+    # Setup test data
+    test_data = [
+        (("test", "foo"), "key1", {"data": "value1", "tag": "a"}),
+        (("test", "bar"), "key2", {"data": "value2", "tag": "a"}),
+        (("test", "baz"), "key3", {"data": "value3", "tag": "b"}),
+    ]
+    for namespace, key, value in test_data:
+        store.put(namespace, key, value)
+
+    ops = [
+        SearchOp(namespace_prefix=("test",), filter={"tag": "a"}, limit=10, offset=0),
+        SearchOp(namespace_prefix=("test",), filter=None, limit=2, offset=0),
+        SearchOp(namespace_prefix=("test", "foo"), filter=None, limit=10, offset=0),
+    ]
+
+    results = store.batch(ops)
+    assert len(results) == 3
+
+    # First search should find items with tag "a"
+    assert len(results[0]) == 2
+    assert all(item.value["tag"] == "a" for item in results[0])
+
+    # Second search should return first 2 items
+    assert len(results[1]) == 2
+
+    # Third search should only find items in test/foo namespace
+    assert len(results[2]) == 1
+    assert results[2][0].namespace == ("test", "foo")

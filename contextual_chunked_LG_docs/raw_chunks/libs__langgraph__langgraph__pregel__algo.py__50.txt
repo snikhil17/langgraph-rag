@@ -1,0 +1,14 @@
+class LazyAtomicCounter:
+    __slots__ = ("_counter",)
+
+    _counter: Optional[Callable[[], int]]
+
+    def __init__(self) -> None:
+        self._counter = None
+
+    def __call__(self) -> int:
+        if self._counter is None:
+            with LAZY_ATOMIC_COUNTER_LOCK:
+                if self._counter is None:
+                    self._counter = itertools.count(0).__next__
+        return self._counter()

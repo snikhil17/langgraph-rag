@@ -1,0 +1,39 @@
+"""Coerce a runnable-like object into a Runnable.
+
+Args:
+    thing: A runnable-like object.
+
+Returns:
+    A Runnable."""
+def coerce_to_runnable(
+    thing: RunnableLike, *, name: Optional[str], trace: bool
+) -> Runnable:
+    """Coerce a runnable-like object into a Runnable.
+
+    Args:
+        thing: A runnable-like object.
+
+    Returns:
+        A Runnable.
+    """
+    if isinstance(thing, Runnable):
+        return thing
+    elif is_async_generator(thing) or inspect.isgeneratorfunction(thing):
+        return RunnableLambda(thing, name=name)
+    elif callable(thing):
+        if is_async_callable(thing):
+            return RunnableCallable(None, thing, name=name, trace=trace)
+        else:
+            return RunnableCallable(
+                thing,
+                wraps(thing)(partial(run_in_executor, None, thing)),  # type: ignore[arg-type]
+                name=name,
+                trace=trace,
+            )
+    elif isinstance(thing, dict):
+        return RunnableParallel(thing)
+    else:
+        raise TypeError(
+            f"Expected a Runnable, callable or dict."
+            f"Instead got an unsupported type: {type(thing)}"
+        )

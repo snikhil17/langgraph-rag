@@ -1,0 +1,117 @@
+def test_invoke_two_processes_in_dict_out(mocker: MockerFixture) -> None:
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    one = Channel.subscribe_to("input") | add_one | Channel.write_to("inbox")
+    two = (
+        Channel.subscribe_to("inbox")
+        | RunnableLambda(add_one).batch
+        | RunnablePassthrough(lambda _: time.sleep(0.1))
+        | Channel.write_to("output").batch
+    )
+
+    app = Pregel(
+        nodes={"one": one, "two": two},
+        channels={
+            "inbox": Topic(int),
+            "output": LastValue(int),
+            "input": LastValue(int),
+        },
+        input_channels=["input", "inbox"],
+        stream_channels=["output", "inbox"],
+        output_channels=["output"],
+    )
+
+    # [12 + 1, 2 + 1 + 1]
+    assert [
+        *app.stream(
+            {"input": 2, "inbox": 12}, output_keys="output", stream_mode="updates"
+        )
+    ] == [
+        {"one": None},
+        {"two": 13},
+        {"two": 4},
+    ]
+    assert [*app.stream({"input": 2, "inbox": 12}, output_keys="output")] == [
+        13,
+        4,
+    ]
+
+    assert [*app.stream({"input": 2, "inbox": 12}, stream_mode="updates")] == [
+        {"one": {"inbox": 3}},
+        {"two": {"output": 13}},
+        {"two": {"output": 4}},
+    ]
+    assert [*app.stream({"input": 2, "inbox": 12})] == [
+        {"inbox": [3], "output": 13},
+        {"output": 4},
+    ]
+    assert [*app.stream({"input": 2, "inbox": 12}, stream_mode="debug")] == [
+        {
+            "type": "task",
+            "timestamp": AnyStr(),
+            "step": 0,
+            "payload": {
+                "id": AnyStr(),
+                "name": "one",
+                "input": 2,
+                "triggers": ("input",),
+            },
+        },
+        {
+            "type": "task",
+            "timestamp": AnyStr(),
+            "step": 0,
+            "payload": {
+                "id": AnyStr(),
+                "name": "two",
+                "input": [12],
+                "triggers": ("inbox",),
+            },
+        },
+        {
+            "type": "task_result",
+            "timestamp": AnyStr(),
+            "step": 0,
+            "payload": {
+                "id": AnyStr(),
+                "name": "one",
+                "result": [("inbox", 3)],
+                "error": None,
+                "interrupts": [],
+            },
+        },
+        {
+            "type": "task_result",
+            "timestamp": AnyStr(),
+            "step": 0,
+            "payload": {
+                "id": AnyStr(),
+                "name": "two",
+                "result": [("output", 13)],
+                "error": None,
+                "interrupts": [],
+            },
+        },
+        {
+            "type": "task",
+            "timestamp": AnyStr(),
+            "step": 1,
+            "payload": {
+                "id": AnyStr(),
+                "name": "two",
+                "input": [3],
+                "triggers": ("inbox",),
+            },
+        },
+        {
+            "type": "task_result",
+            "timestamp": AnyStr(),
+            "step": 1,
+            "payload": {
+                "id": AnyStr(),
+                "name": "two",
+                "result": [("output", 4)],
+                "error": None,
+                "interrupts": [],
+            },
+        },
+    ]

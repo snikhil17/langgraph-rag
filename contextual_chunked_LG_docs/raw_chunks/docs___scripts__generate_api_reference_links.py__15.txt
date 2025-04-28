@@ -1,0 +1,112 @@
+"""Retrieve all import references from the given code for specified ecosystems.
+
+Args:
+    code: The source code from which to extract import references.
+    path: The path of the file where the markdown content originated.
+
+Returns:
+    A list of import information for each import found."""
+def get_imports(code: str, path: str) -> List[ImportInformation]:
+    """Retrieve all import references from the given code for specified ecosystems.
+
+    Args:
+        code: The source code from which to extract import references.
+        path: The path of the file where the markdown content originated.
+
+    Returns:
+        A list of import information for each import found.
+    """
+    # Parse the code into an AST.
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []
+
+    found_imports = []
+
+    # Walk through the AST and process ImportFrom nodes.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            # node.module is the source module.
+            if node.module is None:
+                continue
+            for alias in node.names:
+                if not (
+                    node.module.startswith("langchain")
+                    or node.module.startswith("langgraph")
+                ):
+                    continue
+
+                found_imports.append(
+                    {
+                        "source": node.module,
+                        # alias.name is the original name even if an alias exists.
+                        "imported": alias.name,
+                    }
+                )
+
+    imports: list[ImportInformation] = []
+
+    for found_import in found_imports:
+        module = found_import["source"]
+
+        if module.startswith("langchain"):
+            # Handles things like `langchain` or `langchain_anthropic`
+            package_ecosystem = "langchain"
+        elif module.startswith("langgraph"):
+            package_ecosystem = "langgraph"
+        else:
+            continue
+
+        class_name = found_import["imported"]
+        module_path = _get_full_module_name(module, class_name)
+        if not module_path:
+            continue
+        if len(module_path.split(".")) < 2:
+            continue
+
+        if package_ecosystem == "langchain":
+            pkg = module_path.split(".")[0].replace("langchain_", "")
+            top_level_mod = module_path.split(".")[1]
+
+            url = (
+                _LANGCHAIN_API_REFERENCE
+                + pkg
+                + "/"
+                + top_level_mod
+                + "/"
+                + module_path
+                + "."
+                + class_name
+                + ".html"
+            )
+        elif package_ecosystem == "langgraph":
+            if (module, class_name) not in WELL_KNOWN_LANGGRAPH_OBJECTS:
+                # Likely not documented yet
+                continue
+
+            source_module, namespace = WELL_KNOWN_LANGGRAPH_OBJECTS[
+                (module, class_name)
+            ]
+            url = (
+                _LANGGRAPH_API_REFERENCE
+                + namespace
+                + "/#"
+                + source_module
+                + "."
+                + class_name
+            )
+        else:
+            raise ValueError(f"Invalid package ecosystem: {package_ecosystem}")
+
+        # Add the import information to our list
+        imports.append(
+            {
+                "imported": class_name,
+                "source": module,
+                "docs": url,
+                "path": path,
+            }
+        )
+
+    return imports

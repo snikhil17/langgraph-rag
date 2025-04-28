@@ -1,0 +1,4 @@
+"""Invoke the simulated user node."""
+def _fetch_messages(state: SimulationState):
+
+    return state["messages"]

@@ -1,0 +1,6 @@
+class NoopSerializer(SerializerProtocol):
+    def loads_typed(self, data: tuple[str, bytes]) -> Any:
+        return data[1]
+
+    def dumps_typed(self, obj: Any) -> tuple[str, bytes]:
+        return "type", obj

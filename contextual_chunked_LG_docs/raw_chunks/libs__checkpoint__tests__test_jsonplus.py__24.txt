@@ -1,0 +1,3 @@
+class MyEnum(Enum):
+    FOO = "foo"
+    BAR = "bar"

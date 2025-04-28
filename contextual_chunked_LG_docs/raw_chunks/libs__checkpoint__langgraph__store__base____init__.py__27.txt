@@ -1,0 +1,8 @@
+def _ensure_refresh(
+    ttl_config: Optional[TTLConfig], refresh_ttl: Optional[bool] = None
+) -> bool:
+    if refresh_ttl is not None:
+        return refresh_ttl
+    if ttl_config is not None:
+        return ttl_config.get("refresh_on_read", True)
+    return True

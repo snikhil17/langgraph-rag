@@ -1,0 +1,12 @@
+"""Return the exception from a future, without raising CancelledError."""
+def _exception(
+    fut: Union[concurrent.futures.Future[Any], asyncio.Future[Any]],
+) -> Optional[BaseException]:
+
+    if fut.cancelled():
+        if isinstance(fut, asyncio.Future):
+            return asyncio.CancelledError()
+        else:
+            return concurrent.futures.CancelledError()
+    else:
+        return fut.exception()

@@ -1,0 +1,36 @@
+"""Payload for searching cron jobs.
+
+???+ example "Examples"
+    ```python
+    search_params = {
+        "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+        "thread_id": UUID("123e4567-e89b-12d3-a456-426614174001"),
+        "limit": 10,
+        "offset": 0
+    }
+    ```"""
+class CronsSearch(typing.TypedDict, total=False):
+    """Payload for searching cron jobs.
+
+    ???+ example "Examples"
+        ```python
+        search_params = {
+            "assistant_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
+            "thread_id": UUID("123e4567-e89b-12d3-a456-426614174001"),
+            "limit": 10,
+            "offset": 0
+        }
+        ```
+    """
+
+    assistant_id: typing.Optional[UUID]
+    """typing.Optional assistant ID to filter by."""
+
+    thread_id: typing.Optional[UUID]
+    """typing.Optional thread ID to filter by."""
+
+    limit: int
+    """Maximum number of results to return."""
+
+    offset: int
+    """Offset for pagination."""

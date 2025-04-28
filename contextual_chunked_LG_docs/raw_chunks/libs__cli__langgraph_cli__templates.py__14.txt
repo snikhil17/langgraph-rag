@@ -1,0 +1,36 @@
+"""Retrieves the template URL based on the provided template name.
+
+Args:
+    template_name (str): The name of the template.
+
+Returns:
+    Optional[str]: The URL of the template if found, else None."""
+def _get_template_url(template_name: str) -> Optional[str]:
+    """
+    Retrieves the template URL based on the provided template name.
+
+    Args:
+        template_name (str): The name of the template.
+
+    Returns:
+        Optional[str]: The URL of the template if found, else None.
+    """
+    if template_name in TEMPLATES:
+        click.secho(f"Template selected: {template_name}", fg="green")
+        version_choice: int = click.prompt(
+            "Choose version (1 for Python 🐍, 2 for JS/TS 🌐)", type=int
+        )
+
+        if version_choice == 1:
+            return TEMPLATES[template_name]["python"]
+        elif version_choice == 2:
+            return TEMPLATES[template_name]["js"]
+        else:
+            click.secho("❌ Invalid choice. Please try again.", fg="red")
+            return None
+    else:
+        click.secho(
+            f"Template '{template_name}' not found. Please select from the available options.",
+            fg="red",
+        )
+        return None

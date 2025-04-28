@@ -1,0 +1,21 @@
+class LoopProtocol:
+    config: RunnableConfig
+    store: Optional["BaseStore"]
+    stream: Optional[StreamProtocol]
+    step: int
+    stop: int
+
+    def __init__(
+        self,
+        *,
+        step: int,
+        stop: int,
+        config: RunnableConfig,
+        store: Optional["BaseStore"] = None,
+        stream: Optional[StreamProtocol] = None,
+    ) -> None:
+        self.stream = stream
+        self.config = config
+        self.store = store
+        self.step = step
+        self.stop = stop

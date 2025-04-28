@@ -1,0 +1,6 @@
+"""Represents the response from updating a thread's state."""
+class ThreadUpdateStateResponse(TypedDict):
+
+
+    checkpoint: Checkpoint
+    """Checkpoint of the latest state."""

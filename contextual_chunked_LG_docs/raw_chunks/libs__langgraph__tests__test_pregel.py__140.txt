@@ -1,0 +1,44 @@
+"""Test that state is preserved correctly across multiple interrupts."""
+def test_multiple_interrupt_state_persistence(
+    request: pytest.FixtureRequest, checkpointer_name: str
+) -> None:
+
+
+    checkpointer = request.getfixturevalue(f"checkpointer_{checkpointer_name}")
+
+    class State(TypedDict):
+        steps: Annotated[list[str], operator.add]
+
+    def interruptible_node(state: State):
+        first = interrupt("First interrupt")
+        second = interrupt("Second interrupt")
+        return {"steps": [first, second]}
+
+    builder = StateGraph(State)
+    builder.add_node("node", interruptible_node)
+    builder.add_edge(START, "node")
+
+    app = builder.compile(checkpointer=checkpointer)
+    config = {"configurable": {"thread_id": "1"}}
+
+    # First execution - should hit first interrupt
+    app.invoke({"steps": []}, config)
+
+    # State should still be empty since node hasn't returned
+    state = app.get_state(config)
+    assert state.values == {"steps": []}
+
+    # Resume after first interrupt - should hit second interrupt
+    app.invoke(Command(resume="step1"), config)
+
+    # State should still be empty since node hasn't returned
+    state = app.get_state(config)
+    assert state.values == {"steps": []}
+
+    # Resume after second interrupt - node should complete
+    result = app.invoke(Command(resume="step2"), config)
+
+    # Now state should contain both steps since node returned
+    assert result["steps"] == ["step1", "step2"]
+    state = app.get_state(config)
+    assert state.values["steps"] == ["step1", "step2"]

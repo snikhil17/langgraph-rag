@@ -1,0 +1,9 @@
+def _should_continue(state: SimulationState, max_turns: int = 6):
+    messages = state["messages"]
+    # TODO support other stop criteria
+    if len(messages) > max_turns:
+        return END
+    elif messages[-1].content.strip() == "FINISHED":
+        return END
+    else:
+        return "assistant"

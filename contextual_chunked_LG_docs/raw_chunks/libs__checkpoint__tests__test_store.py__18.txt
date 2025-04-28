@@ -1,0 +1,5 @@
+def test_list_namespaces_empty_store() -> None:
+    store = InMemoryStore()
+
+    result = store.list_namespaces()
+    assert result == []

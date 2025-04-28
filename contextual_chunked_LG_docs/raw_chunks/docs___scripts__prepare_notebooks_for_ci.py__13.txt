@@ -1,0 +1,13 @@
+def comment_install_cells(notebook: nbformat.NotebookNode) -> nbformat.NotebookNode:
+    for cell in notebook.cells:
+        if cell.cell_type != "code":
+            continue
+
+        if "pip install" in cell.source:
+            # Comment out the lines in cells containing "pip install"
+            cell.source = "\n".join(
+                f"# {line}" if line.strip() else line
+                for line in cell.source.splitlines()
+            )
+
+    return notebook

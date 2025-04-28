@@ -1,0 +1,13 @@
+def _saver(name: str):
+    if name == "base":
+        with _base_saver() as saver:
+            yield saver
+    elif name == "shallow":
+        with _shallow_saver() as saver:
+            yield saver
+    elif name == "pool":
+        with _pool_saver() as saver:
+            yield saver
+    elif name == "pipe":
+        with _pipe_saver() as saver:
+            yield saver

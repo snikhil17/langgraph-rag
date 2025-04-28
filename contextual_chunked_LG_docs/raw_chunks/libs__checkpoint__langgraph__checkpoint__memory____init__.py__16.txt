@@ -1,0 +1,83 @@
+"""Persistent dictionary with an API compatible with shelve and anydbm.
+
+The dict is kept in memory, so the dictionary operations run as fast as
+a regular dictionary.
+
+Write to disk is delayed until close or sync (similar to gdbm's fast mode).
+
+Input file format is automatically discovered.
+Output file format is selectable between pickle, json, and csv.
+All three serialization formats are backed by fast C implementations.
+
+Adapted from https://code.activestate.com/recipes/576642-persistent-dict-with-multiple-standard-file-format/"""
+class PersistentDict(defaultdict):
+    """Persistent dictionary with an API compatible with shelve and anydbm.
+
+    The dict is kept in memory, so the dictionary operations run as fast as
+    a regular dictionary.
+
+    Write to disk is delayed until close or sync (similar to gdbm's fast mode).
+
+    Input file format is automatically discovered.
+    Output file format is selectable between pickle, json, and csv.
+    All three serialization formats are backed by fast C implementations.
+
+    Adapted from https://code.activestate.com/recipes/576642-persistent-dict-with-multiple-standard-file-format/
+
+    """
+
+    def __init__(self, *args: Any, filename: str, **kwds: Any) -> None:
+        self.flag = "c"  # r=readonly, c=create, or n=new
+        self.mode = None  # None or an octal triple like 0644
+        self.format = "pickle"  # 'csv', 'json', or 'pickle'
+        self.filename = filename
+        super().__init__(*args, **kwds)
+
+    def sync(self) -> None:
+        "Write dict to disk"
+        if self.flag == "r":
+            return
+        tempname = self.filename + ".tmp"
+        fileobj = open(tempname, "wb" if self.format == "pickle" else "w")
+        try:
+            self.dump(fileobj)
+        except Exception:
+            os.remove(tempname)
+            raise
+        finally:
+            fileobj.close()
+        shutil.move(tempname, self.filename)  # atomic commit
+        if self.mode is not None:
+            os.chmod(self.filename, self.mode)
+
+    def close(self) -> None:
+        self.sync()
+        self.clear()
+
+    def __enter__(self) -> "PersistentDict":
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        self.close()
+
+    def dump(self, fileobj: Any) -> None:
+        if self.format == "pickle":
+            pickle.dump(dict(self), fileobj, 2)
+        else:
+            raise NotImplementedError("Unknown format: " + repr(self.format))
+
+    def load(self) -> None:
+        # try formats from most restrictive to least restrictive
+        if self.flag == "n":
+            return
+        with open(self.filename, "rb" if self.format == "pickle" else "r") as fileobj:
+            for loader in (pickle.load,):
+                fileobj.seek(0)
+                try:
+                    return self.update(loader(fileobj))
+                except EOFError:
+                    return
+                except Exception:
+                    logging.error(f"Failed to load file: {fileobj.name}")
+                    raise
+            raise ValueError("File not in a supported format")

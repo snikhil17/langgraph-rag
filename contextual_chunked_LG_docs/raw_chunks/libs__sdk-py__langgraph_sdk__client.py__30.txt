@@ -1,0 +1,149 @@
+class SyncHttpClient:
+    def __init__(self, client: httpx.Client) -> None:
+        self.client = client
+
+    def get(
+        self,
+        path: str,
+        *,
+        params: Optional[QueryParamTypes] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        """Send a GET request."""
+        r = self.client.get(path, params=params, headers=headers)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = r.read().decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return decode_json(r)
+
+    def post(
+        self,
+        path: str,
+        *,
+        json: Optional[dict],
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        """Send a POST request."""
+        if json is not None:
+            request_headers, content = encode_json(json)
+        else:
+            request_headers, content = {}, b""
+        if headers:
+            request_headers.update(headers)
+        r = self.client.post(path, headers=request_headers, content=content)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = r.read().decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return decode_json(r)
+
+    def put(
+        self, path: str, *, json: dict, headers: Optional[dict[str, str]] = None
+    ) -> Any:
+        """Send a PUT request."""
+        request_headers, content = encode_json(json)
+        if headers:
+            request_headers.update(headers)
+
+        r = self.client.put(path, headers=request_headers, content=content)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = r.read().decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return decode_json(r)
+
+    def patch(
+        self, path: str, *, json: dict, headers: Optional[dict[str, str]] = None
+    ) -> Any:
+        """Send a PATCH request."""
+        request_headers, content = encode_json(json)
+        if headers:
+            request_headers.update(headers)
+        r = self.client.patch(path, headers=request_headers, content=content)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = r.read().decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+        return decode_json(r)
+
+    def delete(
+        self,
+        path: str,
+        *,
+        json: Optional[Any] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> None:
+        """Send a DELETE request."""
+        r = self.client.request("DELETE", path, json=json, headers=headers)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = r.read().decode()
+            if sys.version_info >= (3, 11):
+                e.add_note(body)
+            else:
+                logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+            raise e
+
+    def stream(
+        self,
+        path: str,
+        method: str,
+        *,
+        json: Optional[dict] = None,
+        params: Optional[QueryParamTypes] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Iterator[StreamPart]:
+        """Stream the results of a request using SSE."""
+        request_headers, content = encode_json(json)
+        request_headers["Accept"] = "text/event-stream"
+        request_headers["Cache-Control"] = "no-store"
+        if headers:
+            request_headers.update(headers)
+        with self.client.stream(
+            method, path, headers=request_headers, content=content, params=params
+        ) as res:
+            # check status
+            try:
+                res.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                body = (res.read()).decode()
+                if sys.version_info >= (3, 11):
+                    e.add_note(body)
+                else:
+                    logger.error(f"Error from langgraph-api: {body}", exc_info=e)
+                raise e
+            # check content type
+            content_type = res.headers.get("content-type", "").partition(";")[0]
+            if "text/event-stream" not in content_type:
+                raise httpx.TransportError(
+                    "Expected response header Content-Type to contain 'text/event-stream', "
+                    f"got {content_type!r}"
+                )
+            # parse SSE
+            decoder = SSEDecoder()
+            for line in iter_lines_raw(res):
+                sse = decoder.decode(line.rstrip(b"\n"))
+                if sse is not None:
+                    yield sse

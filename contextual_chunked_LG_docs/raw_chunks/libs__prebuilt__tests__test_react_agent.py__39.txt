@@ -1,0 +1,53 @@
+def test_model_with_tools(tool_style: str, version: str):
+    model = FakeToolCallingModel(tool_style=tool_style)
+
+    @dec_tool
+    def tool1(some_val: int) -> str:
+        """Tool 1 docstring."""
+        return f"Tool 1: {some_val}"
+
+    @dec_tool
+    def tool2(some_val: int) -> str:
+        """Tool 2 docstring."""
+        return f"Tool 2: {some_val}"
+
+    # check valid agent constructor
+    agent = create_react_agent(
+        model.bind_tools([tool1, tool2]),
+        [tool1, tool2],
+        version=version,
+    )
+    result = agent.nodes["tools"].invoke(
+        {
+            "messages": [
+                AIMessage(
+                    "hi?",
+                    tool_calls=[
+                        {
+                            "name": "tool1",
+                            "args": {"some_val": 2},
+                            "id": "some 1",
+                        },
+                        {
+                            "name": "tool2",
+                            "args": {"some_val": 2},
+                            "id": "some 2",
+                        },
+                    ],
+                )
+            ]
+        }
+    )
+    tool_messages: ToolMessage = result["messages"][-2:]
+    for tool_message in tool_messages:
+        assert tool_message.type == "tool"
+        assert tool_message.content in {"Tool 1: 2", "Tool 2: 2"}
+        assert tool_message.tool_call_id in {"some 1", "some 2"}
+
+    # test mismatching tool lengths
+    with pytest.raises(ValueError):
+        create_react_agent(model.bind_tools([tool1]), [tool1, tool2])
+
+    # test missing bound tools
+    with pytest.raises(ValueError):
+        create_react_agent(model.bind_tools([tool1]), [tool2])

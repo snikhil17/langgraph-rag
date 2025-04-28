@@ -1,0 +1,11 @@
+def validate_keys(
+    keys: Optional[Union[str, Sequence[str]]],
+    channels: Mapping[str, Any],
+) -> None:
+    if isinstance(keys, str):
+        if keys not in channels:
+            raise ValueError(f"Key {keys} not in channels")
+    elif keys is not None:
+        for chan in keys:
+            if chan not in channels:
+                raise ValueError(f"Key {chan} not in channels")

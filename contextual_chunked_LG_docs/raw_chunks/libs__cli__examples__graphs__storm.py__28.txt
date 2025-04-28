@@ -1,0 +1,5 @@
+class Perspectives(BaseModel):
+    editors: List[Editor] = Field(
+        description="Comprehensive list of editors with their roles and affiliations.",
+        # Add a pydantic validation/restriction to be at most M editors
+    )

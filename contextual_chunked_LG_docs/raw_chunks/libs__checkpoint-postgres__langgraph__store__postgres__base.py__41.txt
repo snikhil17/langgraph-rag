@@ -1,0 +1,6 @@
+def _decode_ns_bytes(namespace: Union[str, bytes, list]) -> tuple[str, ...]:
+    if isinstance(namespace, list):
+        return tuple(namespace)
+    if isinstance(namespace, bytes):
+        namespace = namespace.decode()[1:]
+    return tuple(namespace.split("."))

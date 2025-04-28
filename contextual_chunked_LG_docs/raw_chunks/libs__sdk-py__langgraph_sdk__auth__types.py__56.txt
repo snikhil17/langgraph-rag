@@ -1,0 +1,15 @@
+"""Operation to store, update, or delete an item in the store."""
+class StorePut(typing.TypedDict):
+
+
+    namespace: tuple[str, ...]
+    """Hierarchical path that identifies the location of the item."""
+
+    key: str
+    """Unique identifier for the item within its namespace."""
+
+    value: typing.Optional[dict[str, typing.Any]]
+    """The data to store, or None to mark the item for deletion."""
+
+    index: typing.Optional[typing.Union[typing.Literal[False], list[str]]]
+    """Optional index configuration for full-text search."""

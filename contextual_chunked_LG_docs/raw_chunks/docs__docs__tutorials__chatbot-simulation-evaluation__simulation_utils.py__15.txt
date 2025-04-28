@@ -1,0 +1,57 @@
+"""Creates a chat simulator for evaluating a chatbot.
+
+Args:
+    assistant: The chatbot assistant function or runnable object.
+    simulated_user: The simulated user object.
+    input_key: The key for the input to the chat simulation.
+    max_turns: The maximum number of turns in the chat simulation. Default is 6.
+    should_continue: Optional function to determine if the simulation should continue.
+        If not provided, a default function will be used.
+
+Returns:
+    The compiled chat simulation graph."""
+def create_chat_simulator(
+    assistant: (
+        Callable[[List[AnyMessage]], str | AIMessage]
+        | Runnable[List[AnyMessage], str | AIMessage]
+    ),
+    simulated_user: Runnable[Dict, AIMessage],
+    *,
+    input_key: str,
+    max_turns: int = 6,
+    should_continue: Optional[Callable[[SimulationState], str]] = None,
+):
+    """Creates a chat simulator for evaluating a chatbot.
+
+    Args:
+        assistant: The chatbot assistant function or runnable object.
+        simulated_user: The simulated user object.
+        input_key: The key for the input to the chat simulation.
+        max_turns: The maximum number of turns in the chat simulation. Default is 6.
+        should_continue: Optional function to determine if the simulation should continue.
+            If not provided, a default function will be used.
+
+    Returns:
+        The compiled chat simulation graph.
+
+    """
+    graph_builder = StateGraph(SimulationState)
+    graph_builder.add_node(
+        "user",
+        _create_simulated_user_node(simulated_user),
+    )
+    graph_builder.add_node(
+        "assistant", _fetch_messages | assistant | _coerce_to_message
+    )
+    graph_builder.add_edge("assistant", "user")
+    graph_builder.add_conditional_edges(
+        "user",
+        should_continue or functools.partial(_should_continue, max_turns=max_turns),
+    )
+    # If your dataset has a 'leading question/input', then we route first to the assistant, otherwise, we let the user take the lead.
+    graph_builder.add_edge(START, "assistant" if input_key is not None else "user")
+
+    return (
+        RunnableLambda(_prepare_example).bind(input_key=input_key)
+        | graph_builder.compile()
+    )

@@ -1,0 +1,28 @@
+"""Configuration for the built-in long-term memory store.
+
+This store can optionally perform semantic search. If you omit `index`,
+the store will just handle traditional (non-embedded) data without vector lookups."""
+class StoreConfig(TypedDict, total=False):
+    """Configuration for the built-in long-term memory store.
+
+    This store can optionally perform semantic search. If you omit `index`,
+    the store will just handle traditional (non-embedded) data without vector lookups.
+    """
+
+    index: Optional[IndexConfig]
+    """Optional. Defines the vector-based semantic search configuration.
+
+    If provided, the store will:
+      - Generate embeddings according to `index.embed`
+      - Enforce the embedding dimension given by `index.dims`
+      - Embed only specified JSON fields (if any) from `index.fields`
+
+    If omitted, no vector index is initialized.
+    """
+
+    ttl: Optional[TTLConfig]
+    """Optional. Defines the TTL (time-to-live) behavior configuration.
+
+    If provided, the store will apply TTL settings according to the configuration.
+    If omitted, no TTL behavior is configured.
+    """

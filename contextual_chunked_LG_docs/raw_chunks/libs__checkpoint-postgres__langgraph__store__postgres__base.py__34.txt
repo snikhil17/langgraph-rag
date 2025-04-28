@@ -1,0 +1,31 @@
+"""Get the vector type operator class based on config."""
+def _get_vector_type_ops(store: BasePostgresStore) -> str:
+
+    if not store.index_config:
+        return "vector_cosine_ops"
+
+    config = cast(PostgresIndexConfig, store.index_config)
+    index_config = config.get("ann_index_config", _DEFAULT_ANN_CONFIG).copy()
+    vector_type = cast(str, index_config.get("vector_type", "vector"))
+    if vector_type not in ("vector", "halfvec"):
+        raise ValueError(
+            f"Vector type must be 'vector' or 'halfvec', got {vector_type}"
+        )
+
+    distance_type = config.get("distance_type", "cosine")
+
+    # For regular vectors
+    type_prefix = {"vector": "vector", "halfvec": "halfvec"}[vector_type]
+
+    if distance_type not in ("l2", "inner_product", "cosine"):
+        raise ValueError(
+            f"Vector type {vector_type} only supports 'l2', 'inner_product', or 'cosine' distance, got {distance_type}"
+        )
+
+    distance_suffix = {
+        "l2": "l2_ops",
+        "inner_product": "ip_ops",
+        "cosine": "cosine_ops",
+    }[distance_type]
+
+    return f"{type_prefix}_{distance_suffix}"

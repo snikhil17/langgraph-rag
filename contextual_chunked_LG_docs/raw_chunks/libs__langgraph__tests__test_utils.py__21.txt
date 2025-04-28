@@ -1,0 +1,52 @@
+def test_enhanced_type_hints() -> None:
+    from dataclasses import dataclass
+    from typing import Annotated
+
+    from pydantic import BaseModel, Field
+
+    class MyTypedDict(TypedDict):
+        val_1: str
+        val_2: int = 42
+        val_3: str = "default"
+
+    hints = list(get_enhanced_type_hints(MyTypedDict))
+    assert len(hints) == 3
+    assert hints[0] == ("val_1", str, None, None)
+    assert hints[1] == ("val_2", int, 42, None)
+    assert hints[2] == ("val_3", str, "default", None)
+
+    @dataclass
+    class MyDataclass:
+        val_1: str
+        val_2: int = 42
+        val_3: str = "default"
+
+    hints = list(get_enhanced_type_hints(MyDataclass))
+    assert len(hints) == 3
+    assert hints[0] == ("val_1", str, None, None)
+    assert hints[1] == ("val_2", int, 42, None)
+    assert hints[2] == ("val_3", str, "default", None)
+
+    class MyPydanticModel(BaseModel):
+        val_1: str
+        val_2: int = 42
+        val_3: str = Field(default="default", description="A description")
+
+    hints = list(get_enhanced_type_hints(MyPydanticModel))
+    assert len(hints) == 3
+    assert hints[0] == ("val_1", str, None, None)
+    assert hints[1] == ("val_2", int, 42, None)
+    assert hints[2] == ("val_3", str, "default", "A description")
+
+    class MyPydanticModelWithAnnotated(BaseModel):
+        val_1: Annotated[str, Field(description="A description")]
+        val_2: Annotated[int, Field(default=42)]
+        val_3: Annotated[
+            str, Field(default="default", description="Another description")
+        ]
+
+    hints = list(get_enhanced_type_hints(MyPydanticModelWithAnnotated))
+    assert len(hints) == 3
+    assert hints[0] == ("val_1", str, None, "A description")
+    assert hints[1] == ("val_2", int, 42, None)
+    assert hints[2] == ("val_3", str, "default", "Another description")

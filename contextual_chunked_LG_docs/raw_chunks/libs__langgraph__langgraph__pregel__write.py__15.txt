@@ -1,0 +1,22 @@
+"""Assembles the writes into a list of tuples."""
+def _assemble_writes(
+    writes: Sequence[Union[ChannelWriteEntry, ChannelWriteTupleEntry, Send]],
+) -> list[tuple[str, Any]]:
+
+    tuples: list[tuple[str, Any]] = []
+    for w in writes:
+        if isinstance(w, Send):
+            tuples.append((TASKS, w))
+        elif isinstance(w, ChannelWriteTupleEntry):
+            if ww := w.mapper(w.value):
+                tuples.extend(ww)
+        elif isinstance(w, ChannelWriteEntry):
+            value = w.mapper(w.value) if w.mapper is not None else w.value
+            if value is SKIP_WRITE:
+                continue
+            if w.skip_none and value is None:
+                continue
+            tuples.append((w.channel, value))
+        else:
+            raise ValueError(f"Invalid write entry: {w}")
+    return tuples

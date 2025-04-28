@@ -1,0 +1,28 @@
+"""Synchronous client for interacting with the LangGraph API.
+
+This class provides synchronous access to LangGraph API endpoints for managing
+assistants, threads, runs, cron jobs, and data storage.
+
+Example:
+
+    client = get_sync_client()
+    assistant = client.assistants.get("asst_123")"""
+class SyncLangGraphClient:
+    """Synchronous client for interacting with the LangGraph API.
+
+    This class provides synchronous access to LangGraph API endpoints for managing
+    assistants, threads, runs, cron jobs, and data storage.
+
+    Example:
+
+        client = get_sync_client()
+        assistant = client.assistants.get("asst_123")
+    """
+
+    def __init__(self, client: httpx.Client) -> None:
+        self.http = SyncHttpClient(client)
+        self.assistants = SyncAssistantsClient(self.http)
+        self.threads = SyncThreadsClient(self.http)
+        self.runs = SyncRunsClient(self.http)
+        self.crons = SyncCronClient(self.http)
+        self.store = SyncStoreClient(self.http)

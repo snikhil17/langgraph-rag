@@ -1,0 +1,7 @@
+def _get_node_name(node: RunnableLike) -> str:
+    if isinstance(node, Runnable):
+        return node.get_name()
+    elif callable(node):
+        return getattr(node, "__name__", node.__class__.__name__)
+    else:
+        raise TypeError(f"Unsupported node type: {type(node)}")

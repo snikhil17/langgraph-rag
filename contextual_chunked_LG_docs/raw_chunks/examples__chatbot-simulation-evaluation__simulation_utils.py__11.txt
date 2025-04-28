@@ -1,0 +1,31 @@
+"""Creates a simulated user for chatbot simulation.
+
+Args:
+    system_prompt (str): The system prompt to be used by the simulated user.
+    llm (Runnable | None, optional): The language model to be used for the simulation.
+        Defaults to gpt-3.5-turbo.
+
+Returns:
+    Runnable[Dict, AIMessage]: The simulated user for chatbot simulation."""
+def create_simulated_user(
+    system_prompt: str, llm: Runnable | None = None
+) -> Runnable[Dict, AIMessage]:
+    """
+    Creates a simulated user for chatbot simulation.
+
+    Args:
+        system_prompt (str): The system prompt to be used by the simulated user.
+        llm (Runnable | None, optional): The language model to be used for the simulation.
+            Defaults to gpt-3.5-turbo.
+
+    Returns:
+        Runnable[Dict, AIMessage]: The simulated user for chatbot simulation.
+    """
+    return ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="messages"),
+        ]
+    ) | (llm or ChatOpenAI(model="gpt-3.5-turbo")).with_config(
+        run_name="simulated_user"
+    )

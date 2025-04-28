@@ -1,0 +1,19 @@
+class DefaultProducer(KafkaProducer):
+    def send(
+        self,
+        topic: str,
+        *,
+        key: Optional[bytes] = None,
+        value: Optional[bytes] = None,
+    ) -> concurrent.futures.Future:
+        fut = concurrent.futures.Future()
+        kfut = super().send(topic, key=key, value=value)
+        kfut.add_callback(fut.set_result)
+        kfut.add_errback(fut.set_exception)
+        return fut
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()

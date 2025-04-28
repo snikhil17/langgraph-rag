@@ -1,0 +1,13 @@
+def test_add_multiple_messages():
+    left = [HumanMessage(content="Hello", id="1")]
+    right = [
+        AIMessage(content="Hi there!", id="2"),
+        SystemMessage(content="System message", id="3"),
+    ]
+    result = add_messages(left, right)
+    expected_result = [
+        HumanMessage(content="Hello", id="1"),
+        AIMessage(content="Hi there!", id="2"),
+        SystemMessage(content="System message", id="3"),
+    ]
+    assert result == expected_result

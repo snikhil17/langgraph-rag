@@ -1,0 +1,50 @@
+def _build(
+    runner,
+    set: Callable[[str], None],
+    config: pathlib.Path,
+    config_json: dict,
+    base_image: Optional[str],
+    pull: bool,
+    tag: str,
+    passthrough: Sequence[str] = (),
+):
+    # pull latest images
+    if pull:
+        runner.run(
+            subp_exec(
+                "docker",
+                "pull",
+                langgraph_cli.config.docker_tag(config_json, base_image),
+                verbose=True,
+            )
+        )
+    set("Building...")
+    # apply options
+    args = [
+        "-f",
+        "-",  # stdin
+        "-t",
+        tag,
+    ]
+    # apply config
+    stdin, additional_contexts = langgraph_cli.config.config_to_docker(
+        config, config_json, base_image
+    )
+    # add additional_contexts
+    if additional_contexts:
+        additional_contexts_str = ",".join(
+            f"{k}={v}" for k, v in additional_contexts.items()
+        )
+        args.extend(["--build-context", additional_contexts_str])
+    # run docker build
+    runner.run(
+        subp_exec(
+            "docker",
+            "build",
+            *args,
+            *passthrough,
+            str(config.parent),
+            input=stdin,
+            verbose=True,
+        )
+    )

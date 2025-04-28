@@ -1,0 +1,19 @@
+"""Get full module name using inspect, with LRU cache to memoize results."""
+def _get_full_module_name(module_path: str, class_name: str) -> Optional[str]:
+
+    try:
+        module = importlib.import_module(module_path)
+        symbol = getattr(module, class_name)
+        # First check the __module__ attribute on the symbol.
+        mod_name = getattr(symbol, "__module__", None)
+        # If __module__ is not set or comes from typing,
+        # assume the definition is in module_path.
+        if mod_name is None or mod_name.startswith("typing"):
+            return module_path
+        return mod_name
+    except AttributeError as e:
+        logger.warning(f"API Reference: Could not find module for {class_name}, {e}")
+        return None
+    except ImportError as e:
+        logger.warning(f"API Reference: Failed to load for class {class_name}, {e}")
+        return None

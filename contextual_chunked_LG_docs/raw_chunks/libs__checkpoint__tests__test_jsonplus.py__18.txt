@@ -1,0 +1,4 @@
+class MyPydantic(BaseModel):
+    foo: str
+    bar: int
+    inner: InnerPydantic

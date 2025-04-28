@@ -1,0 +1,13 @@
+def test_dict_mixed_return() -> None:
+    class State(TypedDict):
+        foo: Annotated[str, operator.add]
+
+    def my_node(state: State):
+        return [Command(update={"foo": "a"}), {"foo": "b"}]
+
+    graph = StateGraph(State)
+    graph.add_node(my_node)
+    graph.add_edge(START, "my_node")
+    graph = graph.compile()
+
+    assert graph.invoke({"foo": ""}) == {"foo": "ab"}

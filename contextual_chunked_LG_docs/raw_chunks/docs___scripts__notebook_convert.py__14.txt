@@ -1,0 +1,47 @@
+"""Extracts all of the outputs from the notebook file.  The extracted
+outputs are returned in the 'resources' dictionary."""
+class ExtractAttachmentsPreprocessor(Preprocessor):
+    """
+    Extracts all of the outputs from the notebook file.  The extracted
+    outputs are returned in the 'resources' dictionary.
+    """
+
+    def preprocess_cell(self, cell, resources, cell_index):
+        """
+        Apply a transformation on each cell,
+        Parameters
+        ----------
+        cell : NotebookNode cell
+            Notebook cell being processed
+        resources : dictionary
+            Additional resources used in the conversion process.  Allows
+            preprocessors to pass variables into the Jinja engine.
+        cell_index : int
+            Index of the cell being processed (see base.py)
+        """
+
+        # Get files directory if it has been specified
+
+        # Make sure outputs key exists
+        if not isinstance(resources["outputs"], dict):
+            resources["outputs"] = {}
+
+        # Loop through all of the attachments in the cell
+        for name, attach in cell.get("attachments", {}).items():
+            for mime, data in attach.items():
+                if mime not in {
+                    "image/png",
+                    "image/jpeg",
+                    "image/svg+xml",
+                    "application/pdf",
+                }:
+                    continue
+
+                # attachments are pre-rendered. Only replace markdown-formatted
+                # images with the following logic
+                attach_str = f"({name})"
+                if attach_str in cell.source:
+                    data = f"(data:{mime};base64,{data})"
+                    cell.source = cell.source.replace(attach_str, data)
+
+        return cell, resources

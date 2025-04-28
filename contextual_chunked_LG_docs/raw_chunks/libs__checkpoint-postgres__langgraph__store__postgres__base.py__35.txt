@@ -1,0 +1,11 @@
+"""Get the index type and configuration based on config."""
+def _get_index_params(store: Any) -> tuple[str, dict[str, Any]]:
+
+    if not store.index_config:
+        return "hnsw", {}
+
+    config = cast(PostgresIndexConfig, store.index_config)
+    index_config = config.get("ann_index_config", _DEFAULT_ANN_CONFIG).copy()
+    kind = index_config.pop("kind", "hnsw")
+    index_config.pop("vector_type", None)
+    return kind, index_config

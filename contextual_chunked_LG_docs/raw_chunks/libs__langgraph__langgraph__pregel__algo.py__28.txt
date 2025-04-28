@@ -1,0 +1,17 @@
+"""Protocol for objects containing writes to be applied to checkpoint.
+Implemented by PregelTaskWrites and PregelExecutableTask."""
+class WritesProtocol(Protocol):
+    """Protocol for objects containing writes to be applied to checkpoint.
+    Implemented by PregelTaskWrites and PregelExecutableTask."""
+
+    @property
+    def path(self) -> tuple[Union[str, int, tuple], ...]: ...
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def writes(self) -> Sequence[tuple[str, Any]]: ...
+
+    @property
+    def triggers(self) -> Sequence[str]: ...

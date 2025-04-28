@@ -1,0 +1,30 @@
+"""Create a checkpoint for the given channels."""
+def create_checkpoint(
+    checkpoint: Checkpoint,
+    channels: Optional[Mapping[str, ChannelProtocol]],
+    step: int,
+    *,
+    id: Optional[str] = None,
+) -> Checkpoint:
+
+    ts = datetime.now(timezone.utc).isoformat()
+    if channels is None:
+        values = checkpoint["channel_values"]
+    else:
+        values = {}
+        for k, v in channels.items():
+            if k not in checkpoint["channel_versions"]:
+                continue
+            try:
+                values[k] = v.checkpoint()
+            except EmptyChannelError:
+                pass
+    return Checkpoint(
+        v=LATEST_VERSION,
+        ts=ts,
+        id=id or str(uuid6(clock_seq=step)),
+        channel_values=values,
+        channel_versions=checkpoint["channel_versions"],
+        versions_seen=checkpoint["versions_seen"],
+        pending_sends=checkpoint.get("pending_sends", []),
+    )

@@ -1,0 +1,39 @@
+def test_tool_node_messages_key() -> None:
+    @dec_tool
+    def add(a: int, b: int):
+        """Adds a and b."""
+        return a + b
+
+    model = FakeToolCallingModel(
+        tool_calls=[[ToolCall(name=add.name, args={"a": 1, "b": 2}, id="test_id")]]
+    )
+
+    class State(TypedDict):
+        subgraph_messages: Annotated[list[AnyMessage], add_messages]
+
+    def call_model(state: State):
+        response = model.invoke(state["subgraph_messages"])
+        model.tool_calls = []
+        return {"subgraph_messages": response}
+
+    builder = StateGraph(State)
+    builder.add_node("agent", call_model)
+    builder.add_node("tools", ToolNode([add], messages_key="subgraph_messages"))
+    builder.add_conditional_edges(
+        "agent", partial(tools_condition, messages_key="subgraph_messages")
+    )
+    builder.add_edge(START, "agent")
+    builder.add_edge("tools", "agent")
+
+    graph = builder.compile()
+    result = graph.invoke({"subgraph_messages": [HumanMessage(content="hi")]})
+    assert result["subgraph_messages"] == [
+        _AnyIdHumanMessage(content="hi"),
+        AIMessage(
+            content="hi",
+            id="0",
+            tool_calls=[ToolCall(name=add.name, args={"a": 1, "b": 2}, id="test_id")],
+        ),
+        _AnyIdToolMessage(content="3", name=add.name, tool_call_id="test_id"),
+        AIMessage(content="hi-hi-3", id="1"),
+    ]

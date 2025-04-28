@@ -1,0 +1,8 @@
+"""Check if a string is a valid task id."""
+def is_task_id(task_id: str) -> bool:
+
+    try:
+        UUID(task_id)
+    except Exception:
+        return False
+    return True

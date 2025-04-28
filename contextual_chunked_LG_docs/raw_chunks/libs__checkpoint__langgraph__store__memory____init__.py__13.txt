@@ -1,0 +1,11 @@
+def _check_numpy() -> bool:
+    if bool(util.find_spec("numpy")):
+        return True
+    logger.warning(
+        "NumPy not found in the current Python environment. "
+        "The InMemoryStore will use a pure Python implementation for vector operations, "
+        "which may significantly impact performance, especially for large datasets or frequent searches. "
+        "For optimal speed and efficiency, consider installing NumPy: "
+        "pip install numpy"
+    )
+    return False

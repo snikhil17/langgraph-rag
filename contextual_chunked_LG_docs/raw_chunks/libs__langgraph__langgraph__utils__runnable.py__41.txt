@@ -1,0 +1,18 @@
+"""Consume an iterator."""
+def _consume_iter(it: Iterator[Any]) -> Any:
+
+    output: Any = None
+    add_supported = False
+    for chunk in it:
+        # collect final output
+        if output is None:
+            output = chunk
+        elif add_supported:
+            try:
+                output = output + chunk
+            except TypeError:
+                output = chunk
+                add_supported = False
+        else:
+            output = chunk
+    return output

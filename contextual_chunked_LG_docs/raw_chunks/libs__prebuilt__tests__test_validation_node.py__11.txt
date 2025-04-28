@@ -1,0 +1,4 @@
+"""Cool."""
+def my_tool(some_val: int, some_other_val: str) -> str:
+
+    return f"{some_val} - {some_other_val}"

@@ -1,0 +1,50 @@
+"""Represents a pattern for matching namespaces in the store.
+
+This class combines a match type (prefix or suffix) with a namespace path
+pattern that can include wildcards to flexibly match different namespace
+hierarchies.
+
+???+ example "Examples"
+    Prefix matching:
+    ```python
+    MatchCondition(match_type="prefix", path=("users", "profiles"))
+    ```
+
+    Suffix matching with wildcard:
+    ```python
+    MatchCondition(match_type="suffix", path=("cache", "*"))
+    ```
+
+    Simple suffix matching:
+    ```python
+    MatchCondition(match_type="suffix", path=("v1",))
+    ```"""
+class MatchCondition(NamedTuple):
+    """Represents a pattern for matching namespaces in the store.
+
+    This class combines a match type (prefix or suffix) with a namespace path
+    pattern that can include wildcards to flexibly match different namespace
+    hierarchies.
+
+    ???+ example "Examples"
+        Prefix matching:
+        ```python
+        MatchCondition(match_type="prefix", path=("users", "profiles"))
+        ```
+
+        Suffix matching with wildcard:
+        ```python
+        MatchCondition(match_type="suffix", path=("cache", "*"))
+        ```
+
+        Simple suffix matching:
+        ```python
+        MatchCondition(match_type="suffix", path=("v1",))
+        ```
+    """
+
+    match_type: NamespaceMatchType
+    """Type of namespace matching to perform."""
+
+    path: NamespacePath
+    """Namespace path pattern that can include wildcards."""

@@ -1,0 +1,106 @@
+def test_fanout_graph_w_interrupt(
+    topics: Topics, checkpointer: BaseCheckpointSaver
+) -> None:
+    input = {"query": "what is weather in sf"}
+    config = {"configurable": {"thread_id": "1"}}
+    graph = mk_fanout_graph(checkpointer, interrupt_before=["qa"])
+
+    # start a new run
+    with DefaultProducer() as producer:
+        producer.send(
+            topics.orchestrator,
+            value=serde.dumps(MessageToOrchestrator(input=input, config=config)),
+        )
+        producer.flush()
+
+    orch_msgs, exec_msgs = drain_topics(topics, graph, debug=1)
+
+    # check interrupted state
+    state = graph.get_state(config)
+    assert state.next == ("qa",)
+    assert (
+        state.values
+        == graph.invoke(input, {"configurable": {"thread_id": "2"}})
+        == {
+            "docs": ["doc1", "doc1", "doc2", "doc2", "doc3", "doc3", "doc4", "doc4"],
+            "query": "analyzed: query: analyzed: query: what is weather in sf",
+        }
+    )
+
+    # check history
+    history = [c for c in graph.get_state_history(config)]
+    assert len(history) == 10
+
+    # check messages
+    assert orch_msgs == [MessageToOrchestrator(input=input, config=config)] + [
+        {
+            "config": {
+                "callbacks": None,
+                "configurable": {
+                    "__pregel_ensure_latest": True,
+                    "__pregel_dedupe_tasks": True,
+                    "__pregel_resuming": False,
+                    "checkpoint_id": c.config["configurable"]["checkpoint_id"],
+                    "checkpoint_ns": "",
+                    "thread_id": "1",
+                },
+                "metadata": AnyDict(),
+                "recursion_limit": 25,
+                "tags": [],
+            },
+            "input": None,
+            "finally_send": None,
+        }
+        for c in reversed(history[1:])  # the last one wasn't executed
+        # orchestrator messages appear only after tasks for that checkpoint
+        # finish executing, ie. after executor sends message to resume checkpoint
+        for _ in c.tasks
+    ]
+    assert exec_msgs == [
+        {
+            "config": {
+                "callbacks": None,
+                "configurable": {
+                    "__pregel_ensure_latest": True,
+                    "__pregel_dedupe_tasks": True,
+                    "__pregel_resuming": False,
+                    "checkpoint_id": c.config["configurable"]["checkpoint_id"],
+                    "checkpoint_ns": "",
+                    "thread_id": "1",
+                },
+                "metadata": AnyDict(),
+                "recursion_limit": 25,
+                "tags": [],
+            },
+            "task": {
+                "id": t.id,
+                "path": list(t.path),
+            },
+            "finally_send": None,
+        }
+        for c in reversed(history[1:])  # the last one wasn't executed
+        for t in c.tasks
+    ]
+
+    # resume the thread
+    with DefaultProducer() as producer:
+        producer.send(
+            topics.orchestrator,
+            value=serde.dumps(MessageToOrchestrator(input=None, config=config)),
+        )
+        producer.flush()
+
+    orch_msgs, exec_msgs = drain_topics(topics, graph)
+
+    # check final state
+    state = graph.get_state(config)
+    assert state.next == ()
+    assert (
+        state.values
+        == graph.invoke(None, {"configurable": {"thread_id": "2"}})
+        == {
+            "answer": "doc1,doc1,doc2,doc2,doc3,doc3,doc4,doc4",
+            "docs": ["doc1", "doc1", "doc2", "doc2", "doc3", "doc3", "doc4", "doc4"],
+            "query": "analyzed: query: analyzed: query: what is weather in sf",
+        }
+    )

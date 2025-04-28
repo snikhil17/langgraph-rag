@@ -1,0 +1,4 @@
+def default_base_image(config: Config) -> str:
+    if config.get("node_version") and not config.get("python_version"):
+        return "langchain/langgraphjs-api"
+    return "langchain/langgraph-api"

@@ -1,0 +1,247 @@
+def test_invoke_two_processes_in_out_interrupt(
+    request: pytest.FixtureRequest, checkpointer_name: str, mocker: MockerFixture
+) -> None:
+    checkpointer = request.getfixturevalue(f"checkpointer_{checkpointer_name}")
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+    one = Channel.subscribe_to("input") | add_one | Channel.write_to("inbox")
+    two = Channel.subscribe_to("inbox") | add_one | Channel.write_to("output")
+
+    app = Pregel(
+        nodes={"one": one, "two": two},
+        channels={
+            "inbox": LastValue(int),
+            "output": LastValue(int),
+            "input": LastValue(int),
+        },
+        input_channels="input",
+        output_channels="output",
+        checkpointer=checkpointer,
+        interrupt_after_nodes=["one"],
+    )
+    thread1 = {"configurable": {"thread_id": "1"}}
+    thread2 = {"configurable": {"thread_id": "2"}}
+
+    # start execution, stop at inbox
+    assert app.invoke(2, thread1) is None
+
+    # inbox == 3
+    checkpoint = checkpointer.get(thread1)
+    assert checkpoint is not None
+    assert checkpoint["channel_values"]["inbox"] == 3
+
+    # resume execution, finish
+    assert app.invoke(None, thread1) == 4
+
+    # start execution again, stop at inbox
+    assert app.invoke(20, thread1) is None
+
+    # inbox == 21
+    checkpoint = checkpointer.get(thread1)
+    assert checkpoint is not None
+    assert checkpoint["channel_values"]["inbox"] == 21
+
+    # send a new value in, interrupting the previous execution
+    assert app.invoke(3, thread1) is None
+    assert app.invoke(None, thread1) == 5
+
+    # start execution again, stopping at inbox
+    assert app.invoke(20, thread2) is None
+
+    # inbox == 21
+    snapshot = app.get_state(thread2)
+    assert snapshot.values["inbox"] == 21
+    assert snapshot.next == ("two",)
+
+    # update the state, resume
+    app.update_state(thread2, 25, as_node="one")
+    assert app.invoke(None, thread2) == 26
+
+    # no pending tasks
+    snapshot = app.get_state(thread2)
+    assert snapshot.next == ()
+
+    if "shallow" in checkpointer_name:
+        return
+
+    # list history
+    history = [c for c in app.get_state_history(thread1)]
+    assert history == [
+        StateSnapshot(
+            values={"inbox": 4, "output": 5, "input": 3},
+            tasks=(),
+            next=(),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "loop",
+                "step": 6,
+                "writes": {"two": 5},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=history[1].config,
+        ),
+        StateSnapshot(
+            values={"inbox": 4, "output": 4, "input": 3},
+            tasks=(PregelTask(AnyStr(), "two", (PULL, "two"), result={"output": 5}),),
+            next=("two",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "loop",
+                "step": 5,
+                "writes": {"one": None},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=history[2].config,
+        ),
+        StateSnapshot(
+            values={"inbox": 21, "output": 4, "input": 3},
+            tasks=(PregelTask(AnyStr(), "one", (PULL, "one"), result={"inbox": 4}),),
+            next=("one",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "input",
+                "step": 4,
+                "writes": {"input": 3},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=history[3].config,
+        ),
+        StateSnapshot(
+            values={"inbox": 21, "output": 4, "input": 20},
+            tasks=(PregelTask(AnyStr(), "two", (PULL, "two")),),
+            next=("two",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "loop",
+                "step": 3,
+                "writes": {"one": None},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=history[4].config,
+        ),
+        StateSnapshot(
+            values={"inbox": 3, "output": 4, "input": 20},
+            tasks=(PregelTask(AnyStr(), "one", (PULL, "one"), result={"inbox": 21}),),
+            next=("one",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "input",
+                "step": 2,
+                "writes": {"input": 20},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=history[5].config,
+        ),
+        StateSnapshot(
+            values={"inbox": 3, "output": 4, "input": 2},
+            tasks=(),
+            next=(),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "loop",
+                "step": 1,
+                "writes": {"two": 4},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=history[6].config,
+        ),
+        StateSnapshot(
+            values={"inbox": 3, "input": 2},
+            tasks=(PregelTask(AnyStr(), "two", (PULL, "two"), result={"output": 4}),),
+            next=("two",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "loop",
+                "step": 0,
+                "writes": {"one": None},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=history[7].config,
+        ),
+        StateSnapshot(
+            values={"input": 2},
+            tasks=(PregelTask(AnyStr(), "one", (PULL, "one"), result={"inbox": 3}),),
+            next=("one",),
+            config={
+                "configurable": {
+                    "thread_id": "1",
+                    "checkpoint_ns": "",
+                    "checkpoint_id": AnyStr(),
+                }
+            },
+            metadata={
+                "parents": {},
+                "source": "input",
+                "step": -1,
+                "writes": {"input": 2},
+                "thread_id": "1",
+            },
+            created_at=AnyStr(),
+            parent_config=None,
+        ),
+    ]
+
+    # re-running from any previous checkpoint should re-run nodes
+    assert [c for c in app.stream(None, history[0].config, stream_mode="updates")] == []
+    assert [c for c in app.stream(None, history[1].config, stream_mode="updates")] == [
+        {"two": {"output": 5}},
+    ]
+    assert [c for c in app.stream(None, history[2].config, stream_mode="updates")] == [
+        {"one": {"inbox": 4}},
+        {"__interrupt__": ()},
+    ]

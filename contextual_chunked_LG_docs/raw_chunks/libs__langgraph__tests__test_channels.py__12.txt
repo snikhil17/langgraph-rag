@@ -1,0 +1,16 @@
+def test_topic_accumulate() -> None:
+    channel = Topic(str, accumulate=True).from_checkpoint(MISSING)
+    assert channel.ValueType == Sequence[str]
+    assert channel.UpdateType is Union[str, list[str]]
+
+    assert channel.update(["a", "b"])
+    assert channel.get() == ["a", "b"]
+    assert channel.update(["b", ["c", "d"], "d"])
+    assert channel.get() == ["a", "b", "b", "c", "d", "d"]
+    assert not channel.update([])
+    assert channel.get() == ["a", "b", "b", "c", "d", "d"]
+    checkpoint = channel.checkpoint()
+    channel = Topic(str, accumulate=True).from_checkpoint(checkpoint)
+    assert channel.get() == ["a", "b", "b", "c", "d", "d"]
+    assert channel.update(["e"])
+    assert channel.get() == ["a", "b", "b", "c", "d", "d", "e"]

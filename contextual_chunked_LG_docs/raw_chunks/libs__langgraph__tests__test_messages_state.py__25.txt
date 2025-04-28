@@ -1,0 +1,9 @@
+def test_non_list_inputs():
+    left = HumanMessage(content="Hello", id="1")
+    right = AIMessage(content="Hi there!", id="2")
+    result = add_messages(left, right)
+    expected_result = [
+        HumanMessage(content="Hello", id="1"),
+        AIMessage(content="Hi there!", id="2"),
+    ]
+    assert result == expected_result

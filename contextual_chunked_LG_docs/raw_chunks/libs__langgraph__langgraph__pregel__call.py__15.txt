@@ -1,0 +1,10 @@
+def _getattribute(obj: Any, name: str) -> Any:
+    for subpath in name.split("."):
+        if subpath == "<locals>":
+            raise AttributeError(f"Can't get local attribute {name!r} on {obj!r}")
+        try:
+            parent = obj
+            obj = getattr(obj, subpath)
+        except AttributeError:
+            raise AttributeError(f"Can't get attribute {name!r} on {obj!r}") from None
+    return obj, parent

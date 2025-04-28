@@ -1,0 +1,36 @@
+def test_batch_many_processes_in_out(mocker: MockerFixture) -> None:
+    test_size = 100
+    add_one = mocker.Mock(side_effect=lambda x: x + 1)
+
+    nodes = {"-1": Channel.subscribe_to("input") | add_one | Channel.write_to("-1")}
+    for i in range(test_size - 2):
+        nodes[str(i)] = (
+            Channel.subscribe_to(str(i - 1)) | add_one | Channel.write_to(str(i))
+        )
+    nodes["last"] = Channel.subscribe_to(str(i)) | add_one | Channel.write_to("output")
+
+    app = Pregel(
+        nodes=nodes,
+        channels={str(i): LastValue(int) for i in range(-1, test_size - 2)}
+        | {"input": LastValue(int), "output": LastValue(int)},
+        input_channels="input",
+        output_channels="output",
+    )
+
+    for _ in range(3):
+        assert app.batch([2, 1, 3, 4, 5], {"recursion_limit": test_size}) == [
+            2 + test_size,
+            1 + test_size,
+            3 + test_size,
+            4 + test_size,
+            5 + test_size,
+        ]
+
+    with ThreadPoolExecutor() as executor:
+        assert [
+            *executor.map(
+                app.batch, [[2, 1, 3, 4, 5]] * 3, [{"recursion_limit": test_size}] * 3
+            )
+        ] == [
+            [2 + test_size, 1 + test_size, 3 + test_size, 4 + test_size, 5 + test_size]
+        ] * 3
